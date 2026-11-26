@@ -8,6 +8,116 @@ namespace ProjectLibraryDesk;
 
 public sealed record MemberInput(string Login, string Name, string Role, string? Password, bool Grant);
 
+internal sealed record GroupInput(MemberGroup? Group, string? Label, string[] Logins, string[] Libraries);
+
+internal sealed class GroupsDialog : Window
+{
+    public GroupsDialog(GroupDirectory directory, IReadOnlyList<Member> members)
+    {
+        Title = T("UserGroups");
+        WindowStartupLocation = WindowStartupLocation.CenterOwner;
+        ShowInTaskbar = false;
+        Width = 670;
+        Height = 565;
+        MinWidth = 530;
+        MinHeight = 430;
+        Background = Brushes.White;
+
+        var groupPicker = new ComboBox
+        {
+            ItemsSource = new[] { T("NewGroup") }.Concat(directory.Groups.Select(group => group.Name)).ToArray(),
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+        };
+        var name = new TextBox { MaxLength = 80 };
+        var fields = new StackPanel();
+        MemberDialog.AddField(fields, T("Group"), groupPicker);
+        MemberDialog.AddField(fields, T("GroupName"), name);
+        var memberChecks = members.ToDictionary(member => member.Login, member =>
+            CreateCheck($"{member.Name} ({member.Login})"), StringComparer.Ordinal);
+        var libraryChecks = directory.Libraries.ToDictionary(library => library, CreateCheck, StringComparer.Ordinal);
+        var lists = new Grid { ColumnDefinitions = new ColumnDefinitions("*,*"), ColumnSpacing = 16 };
+        lists.Children.Add(CheckList(T("Users"), memberChecks.Values, T("AddUsersToChooseGroupMembers")));
+        Control libraries = CheckList(T("Libraries"), libraryChecks.Values, T("RegisterALibraryToAssignToAGroup"));
+        Grid.SetColumn(libraries, 1);
+        lists.Children.Add(libraries);
+
+        var footer = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*") };
+        var delete = new Button { Content = T("DeleteGroup"), VerticalAlignment = VerticalAlignment.Bottom };
+        delete.Classes.Add("danger");
+        delete.Click += (_, _) =>
+        {
+            if (SelectedGroup() is { } group) Close(new GroupInput(group, null, [], []));
+        };
+        footer.Children.Add(delete);
+        var buttons = new StackPanel { HorizontalAlignment = HorizontalAlignment.Right };
+        Grid.SetColumn(buttons, 1);
+        footer.Children.Add(buttons);
+        var feedback = new TextBlock { Foreground = Brushes.DarkRed, TextWrapping = TextWrapping.Wrap };
+        MemberDialog.AddButtons(this, buttons, T("SaveGroup"), () =>
+        {
+            string label = name.Text?.Trim() ?? "";
+            if (label.Length == 0)
+            {
+                feedback.Text = T("EnterAGroupName");
+                name.Focus();
+                return;
+            }
+            Close(new GroupInput(SelectedGroup(), label,
+                memberChecks.Where(pair => pair.Value.IsChecked is true).Select(pair => pair.Key).ToArray(),
+                libraryChecks.Where(pair => pair.Value.IsChecked is true).Select(pair => pair.Key).ToArray()));
+        });
+
+        var layout = new Grid { RowDefinitions = new RowDefinitions("Auto,*,Auto,Auto"), RowSpacing = 9, Margin = new Thickness(22) };
+        layout.Children.Add(fields);
+        Grid.SetRow(lists, 1);
+        layout.Children.Add(lists);
+        Grid.SetRow(feedback, 2);
+        layout.Children.Add(feedback);
+        Grid.SetRow(footer, 3);
+        layout.Children.Add(footer);
+        Content = layout;
+
+        groupPicker.SelectionChanged += (_, _) =>
+        {
+            MemberGroup? group = SelectedGroup();
+            name.Text = group?.Name;
+            delete.IsVisible = group is not null;
+            feedback.Text = null;
+            foreach (var (login, check) in memberChecks)
+                check.IsChecked = group?.Logins.Contains(login, StringComparer.Ordinal) is true;
+            foreach (var (library, check) in libraryChecks)
+                check.IsChecked = group?.Libraries.Contains(library, StringComparer.Ordinal) is true;
+        };
+        groupPicker.SelectedIndex = 0;
+        Opened += (_, _) => name.Focus();
+
+        MemberGroup? SelectedGroup() => groupPicker.SelectedIndex > 0 ? directory.Groups[groupPicker.SelectedIndex - 1] : null;
+    }
+
+    private static CheckBox CreateCheck(string label)
+    {
+        var checkbox = new CheckBox { Content = new TextBlock { Text = label, TextWrapping = TextWrapping.Wrap } };
+        Avalonia.Automation.AutomationProperties.SetName(checkbox, label);
+        return checkbox;
+    }
+
+    private static Control CheckList(string title, ICollection<CheckBox> checks, string emptyText)
+    {
+        var items = new StackPanel { Spacing = 3, Margin = new Thickness(8, 4) };
+        foreach (CheckBox checkbox in checks)
+            items.Children.Add(checkbox);
+        if (checks.Count == 0)
+            items.Children.Add(new TextBlock { Text = emptyText, TextWrapping = TextWrapping.Wrap });
+        var scroll = new ScrollViewer { Content = items };
+        var border = new Border { BorderBrush = Brushes.LightGray, BorderThickness = new Thickness(1), Child = scroll };
+        var grid = new Grid { RowDefinitions = new RowDefinitions("Auto,*"), RowSpacing = 5 };
+        grid.Children.Add(new TextBlock { Text = title, FontWeight = FontWeight.SemiBold });
+        Grid.SetRow(border, 1);
+        grid.Children.Add(border);
+        return grid;
+    }
+}
+
 public sealed class MemberDialog : Window
 {
     public MemberDialog(string action, Member? person, string library)

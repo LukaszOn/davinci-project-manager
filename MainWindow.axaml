@@ -73,9 +73,10 @@
       <Grid x:Name="WorkArea" Grid.Row="1">
         <ScrollViewer x:Name="UsersView" VerticalScrollBarVisibility="Auto">
           <Grid RowDefinitions="Auto,Auto,*" Margin="0,0,1,12">
-            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" Margin="0,0,0,14">
+            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="12" Margin="0,0,0,14">
               <TextBlock Text="{StaticResource Ui.Users}" Classes="page-title" VerticalAlignment="Center" />
-              <Button x:Name="AddMemberButton" Grid.Column="1" Content="{StaticResource Ui.AddPerson}" Classes="primary form-action" Click="AddMember" VerticalAlignment="Center" />
+              <Button x:Name="GroupsButton" Grid.Column="1" Content="{StaticResource Ui.UserGroups}" Classes="form-action" Click="OpenGroups" VerticalAlignment="Center" />
+              <Button x:Name="AddMemberButton" Grid.Column="2" Content="{StaticResource Ui.AddPerson}" Classes="primary form-action" Click="AddMember" VerticalAlignment="Center" />
             </Grid>
             <Border Grid.Row="1" x:Name="SetupNotice" Classes="card" Padding="14,10" Margin="0,0,0,13" IsVisible="False">
               <Grid ColumnDefinitions="*,Auto">
@@ -151,7 +152,7 @@
                       <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                         <StackPanel Spacing="4">
                           <TextBlock x:Name="DetailCurrentLibrary" FontWeight="Bold" TextWrapping="Wrap" />
-                          <TextBlock x:Name="DetailAssignment" FontSize="12" Foreground="{StaticResource Slate}" />
+                          <TextBlock x:Name="DetailAssignment" FontSize="12" Foreground="{StaticResource Slate}" TextWrapping="Wrap" />
                         </StackPanel>
                         <Button x:Name="DetailAccessButton" Grid.Column="1" Content="{StaticResource Ui.GrantAccess}" Click="ChangeSelectedAccess" Margin="0" VerticalAlignment="Center" />
                       </Grid>

@@ -6,7 +6,7 @@
     <AvaloniaUseCompiledBindingsByDefault>false</AvaloniaUseCompiledBindingsByDefault>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <Version>0.5.0</Version>
+    <Version>0.6.0</Version>
     <AssemblyName>DaVinciProjectManager</AssemblyName>
     <RootNamespace>ProjectLibraryDesk</RootNamespace>
     <ApplicationIcon>Assets/Desk.ico</ApplicationIcon>

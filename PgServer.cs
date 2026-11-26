@@ -24,6 +24,7 @@ public sealed record PgIdentity(string Username, int Version, bool CanCreateData
 
 public sealed record Member(string Login, string Name, string Role, bool Enabled, string[] Libraries)
 {
+    public string[] DirectLibraries { get; init; } = Libraries;
     public string RoleLabel => Role == "administrator" ? T("PanelAdministrator") : T("Collaborator");
     public string State => Enabled ? T("Active") : T("Locked");
     public string LibraryList => string.Join(", ", Libraries);
@@ -32,7 +33,13 @@ public sealed record Member(string Login, string Name, string Role, bool Enabled
         .Take(2).Select(word => StringInfo.GetNextTextElement(word))).ToUpperInvariant();
 }
 
-public sealed record DirectoryState(bool Available, bool Registered, string Message, IReadOnlyList<Member> Members);
+public sealed record DirectoryState(bool Available, bool Registered, string Message, IReadOnlyList<Member> Members)
+{
+    public bool GroupsAvailable { get; init; }
+}
+
+public sealed record MemberGroup(string Key, string Name, long Revision, string[] Logins, string[] Libraries);
+public sealed record GroupDirectory(IReadOnlyList<MemberGroup> Groups, IReadOnlyList<string> Libraries);
 
 public sealed class ProfileStore(string file)
 {
@@ -120,12 +127,15 @@ public sealed class PgServer(ServerProfile profile, string password)
         await using var connection = Connection();
         await connection.OpenAsync();
         await using var inspection = new NpgsqlCommand("""
-            SELECT to_regclass('resolve_access.directory') IS NOT NULL
+            SELECT CASE WHEN to_regclass('resolve_access.directory') IS NOT NULL
                AND to_regprocedure('resolve_access.change_member(text,text,text,text,text,text,text,bytea,boolean)') IS NOT NULL
+               THEN CASE WHEN to_regclass('resolve_access.member_direct_access') IS NOT NULL THEN 2 ELSE 1 END
+               ELSE 0 END
             """, connection);
         try
         {
-            if (await inspection.ExecuteScalarAsync() is not true)
+            int version = (int)(await inspection.ExecuteScalarAsync())!;
+            if (version == 0)
                 return new(false, false, T("InstallTheSQLModuleOnThis"), []);
 
             await using var registered = new NpgsqlCommand("SELECT EXISTS (SELECT FROM resolve_access.available_libraries WHERE name = @library)", connection);
@@ -133,20 +143,78 @@ public sealed class PgServer(ServerProfile profile, string password)
             if (await registered.ExecuteScalarAsync() is not true)
                 return new(true, false, T("RegisterThisLibraryWithTheAccess"), []);
 
-            await using var command = new NpgsqlCommand("""
-                SELECT username::text, label, account_role, enabled, libraries::text[]
-                FROM resolve_access.directory ORDER BY lower(label), username
+            bool groupsAvailable = version == 2;
+            string directLibraries = groupsAvailable ? "a.libraries" : "d.libraries::text[]";
+            string directJoin = groupsAvailable ? "JOIN resolve_access.member_direct_access a USING (username)" : "";
+            await using var command = new NpgsqlCommand($"""
+                SELECT d.username::text, d.label, d.account_role, d.enabled, d.libraries::text[], {directLibraries}
+                FROM resolve_access.directory d {directJoin}
+                ORDER BY lower(d.label), d.username
                 """, connection);
             var members = new List<Member>();
             await using var rows = await command.ExecuteReaderAsync();
             while (await rows.ReadAsync())
-                members.Add(new(rows.GetString(0), rows.GetString(1), rows.GetString(2), rows.GetBoolean(3), rows.GetFieldValue<string[]>(4)));
-            return new(true, true, T("TheseAccountsAreManagedOnThis"), members);
+                members.Add(new(rows.GetString(0), rows.GetString(1), rows.GetString(2), rows.GetBoolean(3), rows.GetFieldValue<string[]>(4))
+                {
+                    DirectLibraries = rows.GetFieldValue<string[]>(5),
+                });
+            return new(true, true, T("TheseAccountsAreManagedOnThis"), members)
+            {
+                GroupsAvailable = groupsAvailable,
+            };
         }
         catch (PostgresException error) when (error.SqlState == PostgresErrorCodes.InsufficientPrivilege)
         {
             return new(false, false, T("TheSelectedPostgreSQLAccountCannotAccess"), []);
         }
+    }
+
+    public async Task InstallGroupsAsync()
+    {
+        string path = Path.Combine(AppContext.BaseDirectory, "sql", "groups.sql");
+        if (!File.Exists(path))
+            throw new InvalidOperationException(T("GroupsSqlMissing"));
+        await using var connection = Connection();
+        await connection.OpenAsync();
+        await using var command = new NpgsqlCommand(await File.ReadAllTextAsync(path), connection);
+        await command.ExecuteNonQueryAsync();
+    }
+
+    public async Task<GroupDirectory> ReadGroupsAsync()
+    {
+        await using var connection = Connection();
+        await connection.OpenAsync();
+        await using var command = new NpgsqlCommand("""
+            SELECT group_key, label, revision, logins, libraries
+            FROM resolve_access.group_directory ORDER BY lower(label), group_key;
+            SELECT name::text FROM resolve_access.available_libraries ORDER BY name;
+            """, connection);
+        await using var rows = await command.ExecuteReaderAsync();
+        var groups = new List<MemberGroup>();
+        while (await rows.ReadAsync())
+            groups.Add(new(rows.GetString(0), rows.GetString(1), rows.GetInt64(2),
+                rows.GetFieldValue<string[]>(3), rows.GetFieldValue<string[]>(4)));
+        await rows.NextResultAsync();
+        var libraries = new List<string>();
+        while (await rows.ReadAsync())
+            libraries.Add(rows.GetString(0));
+        return new(groups, libraries);
+    }
+
+    public async Task ChangeGroupAsync(MemberGroup? group, string? label, string[] logins, string[] libraries)
+    {
+        await using var connection = Connection();
+        await connection.OpenAsync();
+        await using var command = new NpgsqlCommand("""
+            SELECT resolve_access.change_group(@group, @revision, @label, @logins, @libraries)
+            """, connection);
+        command.Parameters.AddWithValue("group", NpgsqlDbType.Text, (object?)group?.Key ?? DBNull.Value);
+        command.Parameters.AddWithValue("revision", NpgsqlDbType.Bigint, (object?)group?.Revision ?? DBNull.Value);
+        command.Parameters.AddWithValue("label", NpgsqlDbType.Text, (object?)label ?? DBNull.Value);
+        command.Parameters.AddWithValue("logins", NpgsqlDbType.Array | NpgsqlDbType.Text, logins);
+        command.Parameters.AddWithValue("libraries", NpgsqlDbType.Array | NpgsqlDbType.Text, libraries);
+        var affected = (string[])(await command.ExecuteScalarAsync())!;
+        await CloseRevokedSessionsAsync(connection, affected);
     }
 
     public async Task SaveMemberAsync(string library, string operation, string login, string nextLogin,
@@ -195,14 +263,20 @@ public sealed class PgServer(ServerProfile profile, string password)
         await connection.OpenAsync();
         await ApplyAsync(connection, null, operation, login, library);
         if (operation is "revoke" or "disable")
+            await CloseRevokedSessionsAsync(connection, [login]);
+    }
+
+    private static async Task CloseRevokedSessionsAsync(NpgsqlConnection connection, string[] logins)
+    {
+        if (logins.Length == 0) return;
+        await using var command = new NpgsqlCommand("""
+            SELECT resolve_access.close_revoked_sessions(login) FROM unnest(@logins) AS affected(login)
+            """, connection);
+        command.Parameters.AddWithValue("logins", NpgsqlDbType.Array | NpgsqlDbType.Text, logins);
+        try { await command.ExecuteNonQueryAsync(); }
+        catch (NpgsqlException error)
         {
-            await using var endSessions = new NpgsqlCommand("SELECT resolve_access.close_revoked_sessions(@login)", connection);
-            endSessions.Parameters.AddWithValue("login", login);
-            try { await endSessions.ExecuteNonQueryAsync(); }
-            catch (NpgsqlException error)
-            {
-                throw new InvalidOperationException(T("AccessChangedClosingOpenSessionsCould"), error);
-            }
+            throw new InvalidOperationException(T("AccessChangedClosingOpenSessionsCould"), error);
         }
     }
 

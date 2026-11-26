@@ -20,11 +20,20 @@ The packages include .NET. Linux also needs the system libraries listed in the [
 
 ## Set up account management
 
-Use an existing PostgreSQL account to connect, usually the `postgres` account created during setup. PostgreSQL logins apply across the instance. You assign access to each library separately.
+Connect with an existing PostgreSQL login. Logins apply across the instance. You assign access to each library separately.
 
-- If the server already has the web panel module, the app recognizes the `resolve_access` account registry. The module can work without the web service. Panel administrator is a role in the registry. The desktop app uses the privileges of the PostgreSQL login in the selected profile.
-- For a new instance, connect as a PostgreSQL superuser, select a library, and select **Set up account management**. The wizard displays the `pg_hba.conf` rules for the server administrator to add and reload. The app checks the rules before registering the library. Then you can create individual accounts. For several libraries, place all library rules above the shared rejection rules for `resolve_panel_members`.
+- If the server already has the access module, the app recognizes the `resolve_access` account registry. You can use it from the desktop app without running the web panel. The desktop app uses the PostgreSQL privileges of the login in the selected profile. PostgreSQL controls those privileges separately from the administrator role in the panel's account registry.
+- If you need to set up the module, connect as a PostgreSQL superuser, usually `postgres` on a self-hosted server. Select a library and click **Set up account management**. Add the `pg_hba.conf` rules shown by the wizard and reload PostgreSQL's configuration. The app checks the rules before registering the library. Then you can create individual accounts. For several libraries, place all library rules above the shared rejection rules for `resolve_panel_members`.
 - For ongoing management, you can use a delegated login with access to registry functions. Account management and backup permissions can be granted separately.
+
+### User groups
+
+Groups give several people access to the same libraries on one server. For example, assign two project libraries to an Editors group. Each member can open both libraries using their own Resolve login.
+
+1. Select a registered library and open **Users → User groups**. If groups are disabled on this server, connect as a PostgreSQL superuser and confirm setup.
+2. Choose **New group**, name the group, and select its members and libraries. Select **Save group**. To edit an existing group, select it from the list first.
+
+A person keeps access to a library as long as they have a direct assignment or belong to another group with access. When the last assignment is removed, the app closes that person's sessions for the library. Back up group membership and library assignments with the account registry and PostgreSQL roles.
 
 ## PostgreSQL tools, backups, and restores
 

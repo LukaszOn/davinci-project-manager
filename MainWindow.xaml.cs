@@ -22,6 +22,7 @@ public partial class MainWindow : Window
     private PgIdentity? _identity;
     private bool _checkingConnection;
     private bool _memberControls;
+    private bool _groupsAvailable;
     private bool _canPrepareAccess;
     private bool _busy;
     private bool _membersLoaded;
@@ -245,6 +246,7 @@ public partial class MainWindow : Window
         _identity = null;
         _clientToolsFolder = null;
         _memberControls = false;
+        _groupsAvailable = false;
         _canPrepareAccess = false;
         _membersLoaded = false;
         _directoryMembers = [];
@@ -328,6 +330,7 @@ public partial class MainWindow : Window
         var library = LibraryList.SelectedItem as PgLibrary;
         UpdateConnectionSummary();
         _memberControls = false;
+        _groupsAvailable = false;
         _canPrepareAccess = false;
         SetupButton.IsVisible = false;
         _membersLoaded = false;
@@ -344,6 +347,7 @@ public partial class MainWindow : Window
             throw;
         }
         _memberControls = result.Registered;
+        _groupsAvailable = result.GroupsAvailable;
         _canPrepareAccess = !result.Registered && _identity?.IsSuperuser == true && library.Name != server.Profile.MaintenanceDb;
         _membersLoaded = result.Registered;
         _directoryMembers = result.Members;
@@ -455,12 +459,14 @@ public partial class MainWindow : Window
         if (member is null) return;
         string? library = (LibraryList.SelectedItem as PgLibrary)?.Name;
         bool assigned = library is not null && member.Libraries.Contains(library, StringComparer.Ordinal);
+        bool direct = library is not null && member.DirectLibraries.Contains(library, StringComparer.Ordinal);
         DetailInitials.Text = member.Initials;
         DetailName.Text = member.Name;
         DetailRole.Text = $"{member.Login} · {member.RoleLabel}";
         DetailCurrentLibrary.Text = library ?? T("SelectALibrary");
-        DetailAssignment.Text = assigned ? T("Assigned") : T("NoAccess");
-        DetailAccessButton.Content = assigned ? T("RevokeAccess") : T("GrantAccess");
+        DetailAssignment.Text = _groupsAvailable && assigned ? T(direct ? "DirectAccess" : "AccessThroughAGroup") : T(assigned ? "Assigned" : "NoAccess");
+        DetailAccessButton.Content = direct ? T(_groupsAvailable ? "RevokeDirectAccess" : "RevokeAccess")
+            : T(assigned ? "GrantDirectAccess" : "GrantAccess");
         DetailAccessButton.IsEnabled = _memberControls;
         LockButton.Content = member.Enabled ? T("LockAccount") : T("UnlockAccount");
         LockButton.Classes.Set("danger", member.Enabled);
@@ -493,7 +499,7 @@ public partial class MainWindow : Window
     private async void ChangeSelectedAccess(object sender, RoutedEventArgs e)
     {
         if (MemberList.SelectedItem is Member member && LibraryList.SelectedItem is PgLibrary library)
-            await AccessAsync(member.Libraries.Contains(library.Name, StringComparer.Ordinal) ? "revoke" : "grant");
+            await AccessAsync(member.DirectLibraries.Contains(library.Name, StringComparer.Ordinal) ? "revoke" : "grant");
     }
     private async void ToggleMember(object sender, RoutedEventArgs e) => await AccessAsync("toggle");
 
@@ -502,7 +508,7 @@ public partial class MainWindow : Window
         if (!_memberControls || _server is not { } server || LibraryList.SelectedItem is not PgLibrary library || SelectedMember() is not { } member) return;
         string command = change == "toggle" ? (member.Enabled ? "disable" : "enable") : change;
         if (command == "disable" && !await ConfirmAsync(T("LockAccountOnItsSessionsWill", member.Login, Endpoint(server.Profile)))) return;
-        if (command == "revoke" && !await ConfirmAsync(T("RevokeAccessForToSessionsIn", member.Login, library.Name))) return;
+        if (command == "revoke" && !await ConfirmAsync(T(_groupsAvailable ? "RevokeDirectAccessFor" : "RevokeAccessForToSessionsIn", member.Login, library.Name))) return;
         await RunAsync(T("UpdatingAccess"), async () =>
         {
             await server.ChangeAccessAsync(command, member.Login, library.Name);
@@ -516,6 +522,47 @@ public partial class MainWindow : Window
         if (MemberList.SelectedItem is Member member) return member;
         Status.Text = T("SelectAUserFromTheList");
         return null;
+    }
+
+    private async void OpenGroups(object sender, RoutedEventArgs e)
+    {
+        if (_busy || !_memberControls || _server is not { } server) return;
+        if (!_groupsAvailable)
+        {
+            if (_identity?.IsSuperuser != true)
+            {
+                Status.Text = T("ConnectAsSuperuserToEnableGroups");
+                return;
+            }
+            if (!await ConfirmAsync(T("EnableGroupsOnServer", Endpoint(server.Profile)))) return;
+            if (!ReferenceEquals(_server, server)) return;
+            await RunAsync(T("EnablingUserGroups"), async () =>
+            {
+                await server.InstallGroupsAsync();
+                await ShowDirectoryAsync();
+                return T("UserGroupsEnabled");
+            });
+            if (!_groupsAvailable) return;
+        }
+
+        GroupDirectory? directory = null;
+        await RunAsync("", async () =>
+        {
+            directory = await server.ReadGroupsAsync();
+            return T("UserGroupsLoaded");
+        }, showResult: false);
+        if (directory is null || !ReferenceEquals(_server, server)) return;
+
+        var dialog = new GroupsDialog(directory, _directoryMembers);
+        if (await dialog.ShowDialog<GroupInput?>(this) is not { } input) return;
+        if (input.Label is null && !await ConfirmAsync(T("DeleteGroupConfirm", input.Group!.Name))) return;
+        if (!ReferenceEquals(_server, server)) return;
+        await RunAsync(T("SavingGroup"), async () =>
+        {
+            await server.ChangeGroupAsync(input.Group, input.Label, input.Logins, input.Libraries);
+            await ShowDirectoryAsync((MemberList.SelectedItem as Member)?.Login);
+            return input.Label is null ? T("GroupDeleted", input.Group!.Name) : T("GroupSaved", input.Label);
+        });
     }
 
     private async void DeleteMember(object sender, RoutedEventArgs e)
@@ -636,6 +683,7 @@ public partial class MainWindow : Window
         WorkArea.IsEnabled = !_busy;
         MemberButtons.IsEnabled = _memberControls;
         AddMemberButton.IsEnabled = _memberControls;
+        GroupsButton.IsEnabled = _memberControls;
         DisconnectButton.IsVisible = connected;
         DisconnectButton.IsEnabled = !_busy && connected;
         SetupButton.IsVisible = _canPrepareAccess;

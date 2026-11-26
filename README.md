@@ -22,7 +22,9 @@ The Windows installer is unsigned. The macOS packages are not notarized by Apple
 
 In **Connections**, save a profile for an existing PostgreSQL server. Sign in and select a project library. You can keep several server profiles and switch between them.
 
-The PostgreSQL access module manages accounts and library assignments. A server administrator sets it up the first time. See the [setup guide](GUIDE.md).
+A PostgreSQL superuser sets up the access module. Once it is ready, use a login with the appropriate permissions to add accounts and assign libraries. [Account setup guide](GUIDE.md#set-up-account-management)
+
+Use **Users → User groups** to give a team access to several libraries on one server. Everyone keeps their own Resolve login. [Set up and use groups](GUIDE.md#user-groups)
 
 The app uses `pg_dump` and `pg_restore` to back up and restore libraries. On Windows and macOS, it can download client tools for supported PostgreSQL versions. On Linux, use system packages or select a folder containing the tools.
 
