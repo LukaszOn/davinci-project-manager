@@ -26,8 +26,8 @@ Do ręcznego zapisywania i odtwarzania kopii aplikacja korzysta z `pg_dump` i `p
 
 Aplikacja jest napisana w C# na .NET 10. Interfejs jest zbudowany w Avalonia UI, a połączenia z PostgreSQL obsługuje Npgsql.
 
-## Wersja serwerowa
-
-Osobno planuję **DaVinci Resolve Project Server** ze stosem Docker, panelem WWW i automatycznymi kopiami. Punktem wyjścia jest [Docker-Davinci-Resolve-Project-Server autorstwa elliotmatson](https://github.com/elliotmatson/Docker-Davinci-Resolve-Project-Server).
-
 DaVinci Project Manager jest niezależnym projektem na licencji [MIT](LICENSE).
+
+## DaVinci Resolve Project Server
+
+Wkrótce dostępny.
