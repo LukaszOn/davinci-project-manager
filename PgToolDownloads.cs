@@ -1,3 +1,4 @@
+using static ProjectLibraryDesk.UiText;
 using System.Formats.Tar;
 using System.Globalization;
 using System.IO.Compression;
@@ -43,7 +44,7 @@ internal sealed class PgToolDownloads(string? cacheBase = null)
 
     internal async Task<string> DownloadAsync(PgToolPackage package, IProgress<string>? progress, CancellationToken cancellationToken)
     {
-        if (package != ForCurrentPlatform(package.Major)) throw new InvalidOperationException("Brak zweryfikowanej paczki dla tego systemu.");
+        if (package != ForCurrentPlatform(package.Major)) throw new InvalidOperationException(T("NoVerifiedPackageIsAvailableFor"));
         string target = Path.Combine(PlatformCache, package.CacheName);
         string bin = Path.Combine(target, "bin");
         if (await PgClientTools.SupportsAsync(bin, package.Major, PgClientTools.All, cancellationToken)) return bin;
@@ -64,13 +65,13 @@ internal sealed class PgToolDownloads(string? cacheBase = null)
             try { await FetchAsync(uri, archive, progress, deadline.Token); }
             catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
             {
-                throw new TimeoutException("Pobieranie trwało zbyt długo. Spróbuj ponownie.");
+                throw new TimeoutException(T("TheDownloadTimedOutTryAgain"));
             }
-            progress?.Report("Sprawdzanie sumy SHA-256 i rozpakowywanie…");
+            progress?.Report(T("VerifyingTheSHAChecksumAndExtracting"));
             string payload = Path.Combine(staging, "verified");
             await StageArchiveAsync(package, archive, payload, cancellationToken);
             if (!await PgClientTools.SupportsAsync(Path.Combine(payload, "bin"), package.Major, PgClientTools.All, cancellationToken))
-                throw new InvalidOperationException("Pobrane narzędzia nie uruchamiają się w tym systemie. Wskaż własny katalog narzędzi.");
+                throw new InvalidOperationException(T("TheDownloadedToolsCannotRunOn"));
 
             cancellationToken.ThrowIfCancellationRequested();
             string previous = Path.Combine(staging, "previous");
@@ -110,7 +111,7 @@ internal sealed class PgToolDownloads(string? cacheBase = null)
                 using var response = await Http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, token);
                 response.EnsureSuccessStatusCode();
                 if (response.RequestMessage?.RequestUri?.Scheme != Uri.UriSchemeHttps)
-                    throw new InvalidDataException("Pobieranie narzędzi wymaga HTTPS.");
+                    throw new InvalidDataException(T("ToolDownloadsRequireHTTPS"));
 
                 long? end;
                 if (response.StatusCode == HttpStatusCode.PartialContent)
@@ -118,7 +119,7 @@ internal sealed class PgToolDownloads(string? cacheBase = null)
                     var range = response.Content.Headers.ContentRange;
                     if (range is null || range.From != offset || range.To is not long last || range.Length is not long size ||
                         last < offset || last >= size || (length is not null && length != size))
-                        throw new InvalidDataException("Serwer zwrócił nieprawidłowy fragment paczki.");
+                        throw new InvalidDataException(T("TheServerReturnedAnInvalidPackage"));
                     length = size;
                     end = last + 1;
                 }
@@ -132,15 +133,15 @@ internal sealed class PgToolDownloads(string? cacheBase = null)
                     }
                     end = length = response.Content.Headers.ContentLength;
                 }
-                else throw new InvalidDataException("Serwer nie zwrócił paczki narzędzi.");
+                else throw new InvalidDataException(T("TheServerDidNotReturnA"));
 
-                if (length > MaxDownload) throw new InvalidDataException("Paczka jest większa niż dopuszczalny rozmiar.");
+                if (length > MaxDownload) throw new InvalidDataException(T("ThePackageExceedsTheAllowedSize"));
                 await using Stream input = await response.Content.ReadAsStreamAsync(token);
                 int count;
                 while ((count = await input.ReadAsync(buffer, token)) > 0)
                 {
                     long next = file.Position + count;
-                    if (next > MaxDownload || next > end) throw new InvalidDataException("Paczka przekracza zadeklarowany rozmiar.");
+                    if (next > MaxDownload || next > end) throw new InvalidDataException(T("ThePackageExceedsItsDeclaredSize"));
                     await file.WriteAsync(buffer.AsMemory(0, count), token);
                     if (length is > 0)
                     {
@@ -148,11 +149,11 @@ internal sealed class PgToolDownloads(string? cacheBase = null)
                         if (percent >= reported + 5)
                         {
                             reported = percent;
-                            progress?.Report($"Pobieranie narzędzi PostgreSQL · {reported}%");
+                            progress?.Report(T("DownloadingPostgreSQLTools2", reported));
                         }
                     }
                 }
-                if (end is not null && file.Position != end) throw new IOException("Pobieranie zostało przerwane.");
+                if (end is not null && file.Position != end) throw new IOException(T("TheDownloadWasInterrupted"));
                 if (length is null) return;
                 retries = 0;
             }
@@ -172,7 +173,7 @@ internal sealed class PgToolDownloads(string? cacheBase = null)
         {
             byte[] digest = await SHA256.HashDataAsync(input, token);
             if (!CryptographicOperations.FixedTimeEquals(digest, Convert.FromHexString(package.Sha256)))
-                throw new InvalidDataException("Suma SHA-256 paczki różni się od opublikowanej przez wydawcę.");
+                throw new InvalidDataException(T("ThePackageSHAChecksumDiffersFrom"));
         }
         await Task.Run(() => Extract(package, archive, output, token), token);
     }
@@ -204,7 +205,7 @@ internal sealed class PgToolDownloads(string? cacheBase = null)
             for (int hops = 0; aliases.TryGetValue(library, out string? next) && hops <= aliases.Count; hops++) library = next;
             string path = Path.Combine(output, library);
             if (!IsClientFile(library, windows) || !File.Exists(path))
-                throw new InvalidDataException("Paczka zawiera uszkodzone odwołanie do biblioteki.");
+                throw new InvalidDataException(T("ThePackageContainsABrokenLibrary"));
             using var data = File.OpenRead(path);
             WriteFile(alias, data, data.Length);
         }
@@ -212,7 +213,7 @@ internal sealed class PgToolDownloads(string? cacheBase = null)
         void WriteFile(string relative, Stream data, long size)
         {
             token.ThrowIfCancellationRequested();
-            if (size < 0 || size > MaxExtracted - written) throw new InvalidDataException("Rozpakowana paczka jest zbyt duża.");
+            if (size < 0 || size > MaxExtracted - written) throw new InvalidDataException(T("TheExtractedPackageIsTooLarge"));
             written += size;
             string path = Path.Combine(output, relative);
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);

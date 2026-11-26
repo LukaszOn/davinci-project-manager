@@ -7,24 +7,24 @@
         FontSize="13" Closing="WindowClosing" SizeChanged="LayoutChanged">
   <Grid x:Name="ShellGrid" ColumnDefinitions="224,*">
     <Border Background="#191F2D" Padding="16,23,16,17">
-      <Grid RowDefinitions="Auto,Auto,*">
+      <Grid RowDefinitions="Auto,Auto,*,Auto">
         <Grid x:Name="BrandLockup" ColumnDefinitions="38,*" Margin="3,0,0,23" ColumnSpacing="9">
           <Image Source="avares://DaVinciProjectManager/Assets/Desk.png" VerticalAlignment="Center" />
           <TextBlock x:Name="BrandName" Grid.Column="1" Text="DaVinci Project Manager" Foreground="White" FontSize="15"
                      FontWeight="Bold" TextWrapping="Wrap" VerticalAlignment="Center" />
         </Grid>
         <StackPanel Grid.Row="1" Spacing="3">
-          <Button x:Name="ConnectionsNav" Content="Połączenia" Classes="nav" Click="OpenConnections" />
-          <Button x:Name="UsersNav" Content="Użytkownicy" Classes="nav" Click="OpenUsers" />
-          <Button x:Name="BackupsNav" Content="Kopie i odtwarzanie" Classes="nav" Click="OpenBackups" />
-          <Button x:Name="JournalNav" Content="Dziennik sesji" Classes="nav" Click="OpenJournal" />
+          <Button x:Name="ConnectionsNav" Content="{StaticResource Ui.Connections}" Classes="nav" Click="OpenConnections" />
+          <Button x:Name="UsersNav" Content="{StaticResource Ui.Users}" Classes="nav" Click="OpenUsers" />
+          <Button x:Name="BackupsNav" Content="{StaticResource Ui.BackupAndRestore}" Classes="nav" Click="OpenBackups" />
+          <Button x:Name="JournalNav" Content="{StaticResource Ui.SessionLog}" Classes="nav" Click="OpenJournal" />
         </StackPanel>
         <Grid Grid.Row="2" RowDefinitions="Auto,*" Margin="0,20,0,0">
           <Grid ColumnDefinitions="*,Auto" Margin="6,0,0,5">
-            <TextBlock Text="Biblioteki" Foreground="#BDCADF" FontWeight="SemiBold" VerticalAlignment="Center" />
-            <Button x:Name="RefreshButton" Grid.Column="1" Content="↻" Classes="nav-icon" Click="Refresh" AutomationProperties.Name="Odśwież biblioteki" />
+            <TextBlock Text="{StaticResource Ui.Libraries}" Foreground="#BDCADF" FontWeight="SemiBold" VerticalAlignment="Center" />
+            <Button x:Name="RefreshButton" Grid.Column="1" Content="↻" Classes="nav-icon" Click="Refresh" AutomationProperties.Name="{StaticResource Ui.RefreshLibraries}" />
           </Grid>
-          <ListBox x:Name="LibraryList" Grid.Row="1" Classes="libraries" SelectionChanged="LibrarySelected" AutomationProperties.Name="Bazy PostgreSQL">
+          <ListBox x:Name="LibraryList" Grid.Row="1" Classes="libraries" SelectionChanged="LibrarySelected" AutomationProperties.Name="{StaticResource Ui.PostgreSQLDatabases}">
             <ListBox.ItemTemplate>
               <DataTemplate>
                 <Grid ColumnDefinitions="15,*" Margin="0,1" ToolTip.Tip="{Binding Name}">
@@ -35,13 +35,25 @@
             </ListBox.ItemTemplate>
           </ListBox>
         </Grid>
+        <StackPanel Grid.Row="3" Margin="0,12,0,0" Spacing="4">
+          <Grid ColumnDefinitions="Auto,*" ColumnSpacing="7">
+            <TextBlock Text="{StaticResource Ui.Language}" Foreground="#BDCADF" FontSize="11" VerticalAlignment="Center" />
+            <ComboBox x:Name="LanguagePicker" Grid.Column="1" AutomationProperties.Name="{StaticResource Ui.Language}"
+                      Padding="6,3" MinHeight="26" FontSize="11">
+              <ComboBoxItem Content="English" />
+              <ComboBoxItem Content="Polski" />
+            </ComboBox>
+          </Grid>
+          <TextBlock x:Name="LanguageRestartHint" Text="{StaticResource Ui.TheLanguageChangeTakesEffectAfter}" Foreground="#BDCADF"
+                     FontSize="11" TextWrapping="Wrap" IsVisible="False" />
+        </StackPanel>
       </Grid>
     </Border>
     <Grid x:Name="MainWorkspace" Grid.Column="1" RowDefinitions="Auto,*,Auto" MaxWidth="1480" Margin="26,20,26,12">
       <Border Classes="card" Padding="16,11" Margin="0,0,0,16">
         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
           <StackPanel Spacing="2" VerticalAlignment="Center">
-            <TextBlock Text="Aktywna biblioteka" Classes="form-help" FontSize="11" />
+            <TextBlock Text="{StaticResource Ui.ActiveLibrary}" Classes="form-help" FontSize="11" />
             <TextBlock x:Name="ActiveLibrary" Text="—" FontSize="16" FontWeight="Bold" TextTrimming="CharacterEllipsis"
                        ToolTip.Tip="{Binding #ActiveLibrary.Text}" />
             <TextBlock x:Name="ActiveEndpoint" Classes="form-help" TextTrimming="CharacterEllipsis" IsVisible="False"
@@ -51,10 +63,10 @@
             <Border x:Name="ConnectionBadge" Classes="connection-badge offline" VerticalAlignment="Center">
               <StackPanel Orientation="Horizontal" Spacing="7">
                 <Ellipse Classes="connection-dot" Width="8" Height="8" VerticalAlignment="Center" />
-                <TextBlock x:Name="ConnectionState" Text="Rozłączono" FontSize="12" FontWeight="SemiBold" />
+                <TextBlock x:Name="ConnectionState" Text="{StaticResource Ui.Disconnected2}" FontSize="12" FontWeight="SemiBold" />
               </StackPanel>
             </Border>
-            <Button x:Name="DisconnectButton" Content="Rozłącz" Classes="form-action" Click="Disconnect" IsVisible="False" />
+            <Button x:Name="DisconnectButton" Content="{StaticResource Ui.Disconnect}" Classes="form-action" Click="Disconnect" IsVisible="False" />
           </StackPanel>
         </Grid>
       </Border>
@@ -62,13 +74,13 @@
         <ScrollViewer x:Name="UsersView" VerticalScrollBarVisibility="Auto">
           <Grid RowDefinitions="Auto,Auto,*" Margin="0,0,1,12">
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" Margin="0,0,0,14">
-              <TextBlock Text="Użytkownicy" Classes="page-title" VerticalAlignment="Center" />
-              <Button x:Name="AddMemberButton" Grid.Column="1" Content="＋  Dodaj osobę" Classes="primary form-action" Click="AddMember" VerticalAlignment="Center" />
+              <TextBlock Text="{StaticResource Ui.Users}" Classes="page-title" VerticalAlignment="Center" />
+              <Button x:Name="AddMemberButton" Grid.Column="1" Content="{StaticResource Ui.AddPerson}" Classes="primary form-action" Click="AddMember" VerticalAlignment="Center" />
             </Grid>
             <Border Grid.Row="1" x:Name="SetupNotice" Classes="card" Padding="14,10" Margin="0,0,0,13" IsVisible="False">
               <Grid ColumnDefinitions="*,Auto">
                 <TextBlock x:Name="DirectoryMessage" Foreground="{StaticResource Slate}" TextWrapping="Wrap" VerticalAlignment="Center" />
-                <Button x:Name="SetupButton" Grid.Column="1" Content="Przygotuj obsługę kont" Click="SetupAccess" Margin="9,0,0,0" />
+                <Button x:Name="SetupButton" Grid.Column="1" Content="{StaticResource Ui.SetUpAccountManagement}" Click="SetupAccess" Margin="9,0,0,0" />
               </Grid>
             </Border>
             <Grid x:Name="UserCards" Grid.Row="2" ColumnDefinitions="1.58*,0.94*" RowDefinitions="Auto,Auto" ColumnSpacing="16" RowSpacing="14">
@@ -76,12 +88,12 @@
                 <Grid RowDefinitions="Auto,Auto,Auto">
                   <Grid ColumnDefinitions="*,1.02*" Margin="18,16,17,14" ColumnSpacing="13">
                     <StackPanel Spacing="4">
-                      <TextBlock Text="Konta" Classes="form-title" />
-                      <TextBlock x:Name="MemberStats" Text="0 osób" Foreground="{StaticResource Slate}" TextWrapping="Wrap" />
+                      <TextBlock Text="{StaticResource Ui.Accounts}" Classes="form-title" />
+                      <TextBlock x:Name="MemberStats" Text="{StaticResource Ui.People}" Foreground="{StaticResource Slate}" TextWrapping="Wrap" />
                     </StackPanel>
-                    <TextBox x:Name="MemberSearch" Grid.Column="1" PlaceholderText="Szukaj osoby" TextChanged="SearchMembers" AutomationProperties.Name="Szukaj osoby" VerticalAlignment="Center" />
+                    <TextBox x:Name="MemberSearch" Grid.Column="1" PlaceholderText="{StaticResource Ui.SearchForAPerson}" TextChanged="SearchMembers" AutomationProperties.Name="{StaticResource Ui.SearchForAPerson}" VerticalAlignment="Center" />
                   </Grid>
-                  <DataGrid x:Name="MemberList" Grid.Row="1" Classes="member-grid" SelectionChanged="MemberSelected" AutomationProperties.Name="Użytkownicy serwera" MaxHeight="465">
+                  <DataGrid x:Name="MemberList" Grid.Row="1" Classes="member-grid" SelectionChanged="MemberSelected" AutomationProperties.Name="{StaticResource Ui.ServerUsers}" MaxHeight="465">
                     <DataGrid.Resources>
                       <SolidColorBrush x:Key="DataGridRowSelectedBackgroundBrush" Color="#ECEDFC" />
                       <SolidColorBrush x:Key="DataGridRowSelectedHoveredBackgroundBrush" Color="#E5E8FC" />
@@ -93,7 +105,7 @@
                       <x:Double x:Key="DataGridRowSelectedHoveredUnfocusedBackgroundOpacity">1</x:Double>
                     </DataGrid.Resources>
                     <DataGrid.Columns>
-                      <DataGridTemplateColumn Header="Osoba" Width="1.5*" MinWidth="110">
+                      <DataGridTemplateColumn Header="{StaticResource Ui.Person}" Width="1.5*" MinWidth="110">
                         <DataGridTemplateColumn.CellTemplate>
                           <DataTemplate>
                             <Grid ColumnDefinitions="32,*" VerticalAlignment="Center" Margin="3,1" ColumnSpacing="8">
@@ -106,8 +118,8 @@
                           </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                       </DataGridTemplateColumn>
-                      <DataGridTextColumn Header="Rola" Binding="{Binding RoleLabel}" Width="1.05*" MinWidth="98" />
-                      <DataGridTextColumn Header="Biblioteki" Binding="{Binding LibraryCount}" Width="94" />
+                      <DataGridTextColumn Header="{StaticResource Ui.Role}" Binding="{Binding RoleLabel}" Width="1.05*" MinWidth="98" />
+                      <DataGridTextColumn Header="{StaticResource Ui.Libraries}" Binding="{Binding LibraryCount}" Width="94" />
                       <DataGridTemplateColumn Header="Status" Width="104">
                         <DataGridTemplateColumn.CellTemplate>
                           <DataTemplate>
@@ -124,8 +136,8 @@
               </Border>
               <Border x:Name="DetailsCard" Grid.Column="1" Classes="card" VerticalAlignment="Top" Padding="20,17">
                 <StackPanel Spacing="12">
-                  <TextBlock Text="Szczegóły dostępu" FontSize="21" FontWeight="Bold" />
-                  <TextBlock x:Name="NoMemberDetail" Text="Wybierz osobę z listy." Foreground="{StaticResource Slate}" TextWrapping="Wrap" />
+                  <TextBlock Text="{StaticResource Ui.AccessDetails}" FontSize="21" FontWeight="Bold" />
+                  <TextBlock x:Name="NoMemberDetail" Text="{StaticResource Ui.SelectAPersonFromTheList}" Foreground="{StaticResource Slate}" TextWrapping="Wrap" />
                   <StackPanel x:Name="MemberDetail" Spacing="12" IsVisible="False">
                     <Grid ColumnDefinitions="44,*" ColumnSpacing="11" Margin="0,3,0,4">
                       <Border Width="44" Height="44" Classes="avatar"><TextBlock x:Name="DetailInitials" HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="Bold" FontSize="16" /></Border>
@@ -134,24 +146,24 @@
                         <TextBlock x:Name="DetailRole" Foreground="{StaticResource Slate}" FontSize="12" TextWrapping="Wrap" />
                       </StackPanel>
                     </Grid>
-                    <TextBlock Text="Dostęp do aktywnej biblioteki" FontWeight="SemiBold" />
+                    <TextBlock Text="{StaticResource Ui.AccessToTheActiveLibrary}" FontWeight="SemiBold" />
                     <Border BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,1" Padding="0,10">
                       <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                         <StackPanel Spacing="4">
                           <TextBlock x:Name="DetailCurrentLibrary" FontWeight="Bold" TextWrapping="Wrap" />
                           <TextBlock x:Name="DetailAssignment" FontSize="12" Foreground="{StaticResource Slate}" />
                         </StackPanel>
-                        <Button x:Name="DetailAccessButton" Grid.Column="1" Content="Nadaj dostęp" Click="ChangeSelectedAccess" Margin="0" VerticalAlignment="Center" />
+                        <Button x:Name="DetailAccessButton" Grid.Column="1" Content="{StaticResource Ui.GrantAccess}" Click="ChangeSelectedAccess" Margin="0" VerticalAlignment="Center" />
                       </Grid>
                     </Border>
                     <TextBlock x:Name="OtherLibraries" TextWrapping="Wrap" Foreground="{StaticResource Slate}" FontSize="12" />
                     <StackPanel Spacing="7">
-                      <TextBlock Text="Konto na serwerze" FontWeight="SemiBold" />
+                      <TextBlock Text="{StaticResource Ui.ServerAccount}" FontWeight="SemiBold" />
                       <Grid x:Name="MemberButtons" ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="7" RowSpacing="6">
-                        <Button Content="Edytuj konto" Classes="form-action" HorizontalAlignment="Stretch" Click="EditMember" />
-                        <Button Grid.Column="1" Content="Zmień hasło" Classes="form-action" HorizontalAlignment="Stretch" Click="ResetPassword" />
-                        <Button x:Name="LockButton" Grid.Row="1" Content="Zablokuj konto" Classes="danger form-action" HorizontalAlignment="Stretch" Click="ToggleMember" />
-                        <Button Grid.Row="1" Grid.Column="1" Content="Usuń konto" Classes="danger form-action" HorizontalAlignment="Stretch" Click="DeleteMember" />
+                        <Button Content="{StaticResource Ui.EditAccount}" Classes="form-action" HorizontalAlignment="Stretch" Click="EditMember" />
+                        <Button Grid.Column="1" Content="{StaticResource Ui.ChangePassword}" Classes="form-action" HorizontalAlignment="Stretch" Click="ResetPassword" />
+                        <Button x:Name="LockButton" Grid.Row="1" Content="{StaticResource Ui.LockAccount}" Classes="danger form-action" HorizontalAlignment="Stretch" Click="ToggleMember" />
+                        <Button Grid.Row="1" Grid.Column="1" Content="{StaticResource Ui.DeleteAccount}" Classes="danger form-action" HorizontalAlignment="Stretch" Click="DeleteMember" />
                       </Grid>
                     </StackPanel>
                   </StackPanel>
@@ -161,36 +173,36 @@
           </Grid>
         </ScrollViewer>
         <Grid x:Name="ConnectionsView" RowDefinitions="Auto,*,Auto" VerticalAlignment="Top" IsVisible="False">
-          <TextBlock Text="Połączenia" Classes="page-title" Margin="0,0,0,14" />
+          <TextBlock Text="{StaticResource Ui.Connections}" Classes="page-title" Margin="0,0,0,14" />
           <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Visible" HorizontalScrollBarVisibility="Disabled">
             <StackPanel Spacing="12" Margin="0,0,0,1">
               <Border Classes="card" Padding="17,13">
                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                   <StackPanel Spacing="5">
-                    <TextBlock Text="Zapisane profile" Classes="form-label" />
+                    <TextBlock Text="{StaticResource Ui.SavedProfiles}" Classes="form-label" />
                     <ComboBox x:Name="ProfileList" Classes="form-field" DisplayMemberBinding="{Binding Name}"
-                              SelectionChanged="ProfileSelected" PlaceholderText="Wybierz profil"
-                              AutomationProperties.Name="Zapisane profile" />
+                              SelectionChanged="ProfileSelected" PlaceholderText="{StaticResource Ui.SelectAProfile}"
+                              AutomationProperties.Name="{StaticResource Ui.SavedProfiles}" />
                   </StackPanel>
                   <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Bottom">
-                    <Button Content="Nowy profil" Classes="form-action" Click="NewProfile" />
-                    <Button x:Name="DeleteProfileButton" Content="Usuń profil" Classes="form-action" Click="DeleteProfile"
-                            ToolTip.Tip="Usuń wybrany profil z tego komputera" IsEnabled="False" />
+                    <Button Content="{StaticResource Ui.NewProfile}" Classes="form-action" Click="NewProfile" />
+                    <Button x:Name="DeleteProfileButton" Content="{StaticResource Ui.DeleteProfile}" Classes="form-action" Click="DeleteProfile"
+                            ToolTip.Tip="{StaticResource Ui.RemoveTheSelectedProfileFromThis}" IsEnabled="False" />
                   </StackPanel>
                 </Grid>
               </Border>
               <Border Classes="card" Padding="17,14">
                 <StackPanel Spacing="13">
-                  <TextBlock Text="Dane połączenia" Classes="form-title" />
+                  <TextBlock Text="{StaticResource Ui.ConnectionDetails}" Classes="form-title" />
                   <Grid x:Name="ProfileFields" ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="14">
                     <StackPanel Spacing="5">
-                      <TextBlock Text="Nazwa profilu" Classes="form-label" />
-                      <TextBox x:Name="ProfileName" Classes="form-field" PlaceholderText="np. Studio montażowe" AutomationProperties.Name="Nazwa profilu" />
+                      <TextBlock Text="{StaticResource Ui.ProfileName}" Classes="form-label" />
+                      <TextBox x:Name="ProfileName" Classes="form-field" PlaceholderText="{StaticResource Ui.EGEditingStudio}" AutomationProperties.Name="{StaticResource Ui.ProfileName}" />
                     </StackPanel>
                     <Grid x:Name="AddressFields" Grid.Column="1" ColumnDefinitions="*,84" ColumnSpacing="10">
                       <StackPanel Spacing="5">
-                        <TextBlock Text="Adres serwera" Classes="form-label" />
-                        <TextBox x:Name="Host" Classes="form-field" PlaceholderText="Host lub adres IP" AutomationProperties.Name="Adres serwera" />
+                        <TextBlock Text="{StaticResource Ui.ServerAddress}" Classes="form-label" />
+                        <TextBox x:Name="Host" Classes="form-field" PlaceholderText="{StaticResource Ui.HostnameOrIPAddress}" AutomationProperties.Name="{StaticResource Ui.ServerAddress}" />
                       </StackPanel>
                       <StackPanel Grid.Column="1" Spacing="5">
                         <TextBlock Text="Port" Classes="form-label" />
@@ -200,21 +212,21 @@
                   </Grid>
                   <Grid x:Name="CredentialsFields" ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="14">
                     <StackPanel Spacing="5">
-                      <TextBlock Text="Login PostgreSQL" Classes="form-label" />
-                      <TextBox x:Name="Login" Classes="form-field" AutomationProperties.Name="Login PostgreSQL" />
+                      <TextBlock Text="{StaticResource Ui.PostgreSQLUsername}" Classes="form-label" />
+                      <TextBox x:Name="Login" Classes="form-field" AutomationProperties.Name="{StaticResource Ui.PostgreSQLUsername}" />
                     </StackPanel>
                     <StackPanel x:Name="PasswordField" Grid.Column="1" Spacing="5">
-                      <TextBlock Text="Hasło PostgreSQL" Classes="form-label" />
-                      <TextBox x:Name="LoginPassword" Classes="form-field" PasswordChar="●" AutomationProperties.Name="Hasło PostgreSQL" />
+                      <TextBlock Text="{StaticResource Ui.PostgreSQLPassword}" Classes="form-label" />
+                      <TextBox x:Name="LoginPassword" Classes="form-field" PasswordChar="●" AutomationProperties.Name="{StaticResource Ui.PostgreSQLPassword}" />
                     </StackPanel>
                   </Grid>
                 </StackPanel>
               </Border>
               <Border Classes="card" ClipToBounds="True">
                 <StackPanel>
-                  <ToggleButton x:Name="ConnectionOptions" Classes="connection-options" AutomationProperties.Name="Opcje połączenia">
+                  <ToggleButton x:Name="ConnectionOptions" Classes="connection-options" AutomationProperties.Name="{StaticResource Ui.ConnectionOptions}">
                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
-                      <TextBlock Text="Opcje połączenia" FontWeight="SemiBold" VerticalAlignment="Center" />
+                      <TextBlock Text="{StaticResource Ui.ConnectionOptions}" FontWeight="SemiBold" VerticalAlignment="Center" />
                       <PathIcon Grid.Column="1" Width="11" Height="7" VerticalAlignment="Center"
                                 Data="M 0,1 L 1,0 L 6,5 L 11,0 L 12,1 L 6,7 Z" />
                     </Grid>
@@ -224,59 +236,59 @@
                     <Grid x:Name="OptionFields" ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto,Auto" ColumnSpacing="14" RowSpacing="13">
                       <StackPanel Spacing="5">
                         <StackPanel Orientation="Horizontal" Spacing="6">
-                          <TextBlock Text="Baza startowa" Classes="form-label" VerticalAlignment="Center" />
-                          <Button Classes="help" Content="i" Click="ShowHelp" AutomationProperties.Name="Pomoc: baza startowa">
-                            <ToolTip.Tip><TextBlock Classes="help-copy" Text="Baza używana do logowania i pobrania listy bibliotek. Zwykle to postgres. W hostingu wpisz nazwę bazy podaną przez dostawcę." /></ToolTip.Tip>
+                          <TextBlock Text="{StaticResource Ui.ConnectionDatabase}" Classes="form-label" VerticalAlignment="Center" />
+                          <Button Classes="help" Content="i" Click="ShowHelp" AutomationProperties.Name="{StaticResource Ui.HelpConnectionDatabase}">
+                            <ToolTip.Tip><TextBlock Classes="help-copy" Text="{StaticResource Ui.TheDatabaseUsedToSignIn}" /></ToolTip.Tip>
                           </Button>
                         </StackPanel>
-                        <TextBox x:Name="MaintenanceDb" Classes="form-field" AutomationProperties.Name="Baza startowa" />
+                        <TextBox x:Name="MaintenanceDb" Classes="form-field" AutomationProperties.Name="{StaticResource Ui.ConnectionDatabase}" />
                       </StackPanel>
                       <StackPanel x:Name="TlsField" Grid.Column="1" Spacing="5">
                         <StackPanel Orientation="Horizontal" Spacing="6">
-                          <TextBlock Text="Szyfrowanie TLS" Classes="form-label" VerticalAlignment="Center" />
-                          <Button Classes="help" Content="i" Click="ShowHelp" AutomationProperties.Name="Pomoc: szyfrowanie TLS">
-                            <ToolTip.Tip><TextBlock Classes="help-copy" Text="Weryfikacja TLS sprawdza certyfikat i nazwę serwera. Tryb wymagany szyfruje połączenie bez weryfikacji serwera. Tryb opcjonalny może połączyć bez szyfrowania. Używaj go w zaufanej sieci." /></ToolTip.Tip>
+                          <TextBlock Text="{StaticResource Ui.TLSEncryption}" Classes="form-label" VerticalAlignment="Center" />
+                          <Button Classes="help" Content="i" Click="ShowHelp" AutomationProperties.Name="{StaticResource Ui.HelpTLSEncryption}">
+                            <ToolTip.Tip><TextBlock Classes="help-copy" Text="{StaticResource Ui.VerifiedTLSChecksTheCertificateAnd}" /></ToolTip.Tip>
                           </Button>
                         </StackPanel>
-                        <ComboBox x:Name="SslModeList" Classes="form-field" AutomationProperties.Name="Szyfrowanie TLS">
-                          <ComboBoxItem Content="TLS z weryfikacją" Tag="VerifyFull" />
-                          <ComboBoxItem Content="TLS wymagany" Tag="Require" />
-                          <ComboBoxItem Content="TLS opcjonalny" Tag="Prefer" />
+                        <ComboBox x:Name="SslModeList" Classes="form-field" AutomationProperties.Name="{StaticResource Ui.TLSEncryption}">
+                          <ComboBoxItem Content="{StaticResource Ui.VerifyTLS}" Tag="VerifyFull" />
+                          <ComboBoxItem Content="{StaticResource Ui.RequireTLS}" Tag="Require" />
+                          <ComboBoxItem Content="{StaticResource Ui.PreferTLS}" Tag="Prefer" />
                         </ComboBox>
                       </StackPanel>
                       <StackPanel x:Name="CertificateField" Grid.Row="1" Spacing="5">
                         <StackPanel Orientation="Horizontal" Spacing="6">
-                          <TextBlock Text="Certyfikat CA" Classes="form-label" VerticalAlignment="Center" />
-                          <Button Classes="help" Content="i" Click="ShowHelp" AutomationProperties.Name="Pomoc: certyfikat CA">
-                            <ToolTip.Tip><TextBlock Classes="help-copy" Text="Wskaż certyfikat CA tylko wtedy, gdy serwer używa własnego urzędu certyfikacji. Zwykle wystarczy domyślny magazyn zaufania." /></ToolTip.Tip>
+                          <TextBlock Text="{StaticResource Ui.CACertificate}" Classes="form-label" VerticalAlignment="Center" />
+                          <Button Classes="help" Content="i" Click="ShowHelp" AutomationProperties.Name="{StaticResource Ui.HelpCACertificate}">
+                            <ToolTip.Tip><TextBlock Classes="help-copy" Text="{StaticResource Ui.SelectACACertificateIfThe}" /></ToolTip.Tip>
                           </Button>
                         </StackPanel>
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                           <TextBlock x:Name="CertificatePath" Classes="form-help" VerticalAlignment="Center"
                                      TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding #CertificatePath.Text}" />
                           <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
-                            <Button x:Name="ResetCertificateButton" Content="Resetuj" Classes="form-action" Click="ResetCertificate"
-                                    ToolTip.Tip="Użyj certyfikatów systemowych" AutomationProperties.Name="Użyj certyfikatów systemowych" IsVisible="False" />
-                            <Button Content="Wybierz plik" Classes="form-action" Click="SelectCertificate"
-                                    AutomationProperties.Name="Wybierz certyfikat CA" />
+                            <Button x:Name="ResetCertificateButton" Content="{StaticResource Ui.Reset}" Classes="form-action" Click="ResetCertificate"
+                                    ToolTip.Tip="{StaticResource Ui.UseSystemCertificates}" AutomationProperties.Name="{StaticResource Ui.UseSystemCertificates}" IsVisible="False" />
+                            <Button Content="{StaticResource Ui.SelectFile}" Classes="form-action" Click="SelectCertificate"
+                                    AutomationProperties.Name="{StaticResource Ui.SelectACACertificate}" />
                           </StackPanel>
                         </Grid>
                       </StackPanel>
                       <StackPanel x:Name="ToolsField" Grid.Row="1" Grid.Column="1" Spacing="5">
                         <StackPanel Orientation="Horizontal" Spacing="6">
-                          <TextBlock Text="Narzędzia do kopii" Classes="form-label" VerticalAlignment="Center" />
-                          <Button Classes="help" Content="i" Click="ShowHelp" AutomationProperties.Name="Pomoc: narzędzia do kopii">
-                            <ToolTip.Tip><TextBlock Classes="help-copy" Text="Wybierz folder bin PostgreSQL z pg_dump, pg_restore i psql. Ustawienie domyślne wystarczy, jeśli narzędzia są już w systemowej ścieżce PATH." /></ToolTip.Tip>
+                          <TextBlock Text="{StaticResource Ui.BackupTools}" Classes="form-label" VerticalAlignment="Center" />
+                          <Button Classes="help" Content="i" Click="ShowHelp" AutomationProperties.Name="{StaticResource Ui.HelpBackupTools}">
+                            <ToolTip.Tip><TextBlock Classes="help-copy" Text="{StaticResource Ui.SelectThePostgreSQLBinFolderContaining}" /></ToolTip.Tip>
                           </Button>
                         </StackPanel>
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                           <TextBlock x:Name="ToolsPath" Classes="form-help" VerticalAlignment="Center"
                                      TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding #ToolsPath.Text}" />
                           <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
-                            <Button x:Name="ResetToolsButton" Content="Resetuj" Classes="form-action" Click="ResetTools"
-                                    ToolTip.Tip="Szukaj narzędzi w systemowej ścieżce PATH" AutomationProperties.Name="Użyj systemowej ścieżki PATH" IsVisible="False" />
-                            <Button Content="Wybierz folder" Classes="form-action" Click="SelectTools"
-                                    AutomationProperties.Name="Wybierz folder narzędzi do kopii" />
+                            <Button x:Name="ResetToolsButton" Content="{StaticResource Ui.Reset}" Classes="form-action" Click="ResetTools"
+                                    ToolTip.Tip="{StaticResource Ui.SearchForToolsOnTheSystem}" AutomationProperties.Name="{StaticResource Ui.UseTheSystemPATH}" IsVisible="False" />
+                            <Button Content="{StaticResource Ui.SelectFolder}" Classes="form-action" Click="SelectTools"
+                                    AutomationProperties.Name="{StaticResource Ui.SelectTheBackupToolsFolder}" />
                           </StackPanel>
                         </Grid>
                       </StackPanel>
@@ -292,7 +304,7 @@
                   </StackPanel>
                   <StackPanel Grid.Column="1" Spacing="6" VerticalAlignment="Center">
                     <Button x:Name="ClientToolsDownload" Classes="primary form-action" HorizontalAlignment="Stretch" Click="PrepareClientTools" />
-                    <Button x:Name="CheckClientTools" Classes="form-action" Content="Sprawdź ponownie" HorizontalAlignment="Stretch" Click="RecheckClientTools" />
+                    <Button x:Name="CheckClientTools" Classes="form-action" Content="{StaticResource Ui.CheckAgain}" HorizontalAlignment="Stretch" Click="RecheckClientTools" />
                   </StackPanel>
                 </Grid>
               </Border>
@@ -300,44 +312,44 @@
           </ScrollViewer>
           <Border Grid.Row="2" Classes="card" Margin="0,10,0,0" Padding="13,9">
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
-              <TextBlock Text="Hasło jest używane tylko w tej sesji." Classes="form-help" TextWrapping="Wrap" VerticalAlignment="Center" />
+              <TextBlock Text="{StaticResource Ui.ThePasswordIsUsedOnlyFor}" Classes="form-help" TextWrapping="Wrap" VerticalAlignment="Center" />
               <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
-                <Button Content="Zapisz profil" Classes="form-action" Click="SaveProfile" />
-                <Button Content="Połącz" Classes="primary form-action" MinWidth="83" Click="Connect" />
+                <Button Content="{StaticResource Ui.SaveProfile}" Classes="form-action" Click="SaveProfile" />
+                <Button Content="{StaticResource Ui.Connect}" Classes="primary form-action" MinWidth="83" Click="Connect" />
               </StackPanel>
             </Grid>
           </Border>
         </Grid>
         <ScrollViewer x:Name="BackupsView" VerticalScrollBarVisibility="Auto" IsVisible="False">
           <StackPanel Spacing="14" Margin="0,0,1,10">
-            <TextBlock Text="Kopie i odtwarzanie" Classes="page-title" />
+            <TextBlock Text="{StaticResource Ui.BackupAndRestore}" Classes="page-title" />
             <Border x:Name="BackupsToolsNotice" Classes="card" Padding="17,11" IsVisible="False">
               <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                 <TextBlock x:Name="BackupsToolsMessage" Classes="form-help" VerticalAlignment="Center" TextWrapping="Wrap" />
-                <Button Grid.Column="1" Content="Ustaw narzędzia" Classes="form-action" Click="OpenClientTools" />
+                <Button Grid.Column="1" Content="{StaticResource Ui.SetUpTools}" Classes="form-action" Click="OpenClientTools" />
               </Grid>
             </Border>
             <Grid x:Name="BackupCards" ColumnDefinitions="*,*,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="13">
               <Border Classes="card" Padding="17">
                 <Grid RowDefinitions="Auto,*,Auto" RowSpacing="9">
-                  <TextBlock Text="Kopia biblioteki" Classes="form-title" />
-                  <TextBlock Grid.Row="1" Text="Zapisz kopię wybranej biblioteki na tym komputerze." Classes="form-help" TextWrapping="Wrap" />
-                  <Button x:Name="BackupButton" Grid.Row="2" Content="Zapisz kopię" Classes="primary form-action" Click="Backup"
+                  <TextBlock Text="{StaticResource Ui.LibraryBackup}" Classes="form-title" />
+                  <TextBlock Grid.Row="1" Text="{StaticResource Ui.SaveACopyOfTheSelected}" Classes="form-help" TextWrapping="Wrap" />
+                  <Button x:Name="BackupButton" Grid.Row="2" Content="{StaticResource Ui.SaveBackup}" Classes="primary form-action" Click="Backup"
                           ToolTip.ShowOnDisabled="True" />
                 </Grid>
               </Border>
               <Border x:Name="ArchiveCard" Classes="card" Grid.Column="1" Padding="17">
                 <Grid RowDefinitions="Auto,*,Auto" RowSpacing="9">
-                  <TextBlock Text="Sprawdzenie pliku" Classes="form-title" />
-                  <TextBlock Grid.Row="1" Text="Odczytaj spis zawartości archiwum PostgreSQL." Classes="form-help" TextWrapping="Wrap" />
-                  <Button Grid.Row="2" Content="Sprawdź archiwum" Classes="form-action" Click="InspectArchive" />
+                  <TextBlock Text="{StaticResource Ui.ArchiveInspection}" Classes="form-title" />
+                  <TextBlock Grid.Row="1" Text="{StaticResource Ui.ViewTheContentsOfAPostgreSQL}" Classes="form-help" TextWrapping="Wrap" />
+                  <Button Grid.Row="2" Content="{StaticResource Ui.InspectArchive}" Classes="form-action" Click="InspectArchive" />
                 </Grid>
               </Border>
               <Border x:Name="RestoreCard" Classes="card" Grid.Column="2" Padding="17">
                 <Grid RowDefinitions="Auto,*,Auto" RowSpacing="9">
-                  <TextBlock Text="Odtworzenie kopii" Classes="form-title" />
-                  <TextBlock Grid.Row="1" Text="Przywróć zawartość kopii do nowej bazy na połączonym serwerze." Classes="form-help" TextWrapping="Wrap" />
-                  <Button x:Name="RestoreButton" Grid.Row="2" Content="Odtwórz kopię" Classes="form-action" Click="Restore"
+                  <TextBlock Text="{StaticResource Ui.RestoreBackup}" Classes="form-title" />
+                  <TextBlock Grid.Row="1" Text="{StaticResource Ui.RestoreTheBackupToANew}" Classes="form-help" TextWrapping="Wrap" />
+                  <Button x:Name="RestoreButton" Grid.Row="2" Content="{StaticResource Ui.RestoreABackup}" Classes="form-action" Click="Restore"
                           ToolTip.ShowOnDisabled="True" />
                 </Grid>
               </Border>
@@ -345,17 +357,17 @@
           </StackPanel>
         </ScrollViewer>
         <Grid x:Name="JournalView" RowDefinitions="Auto,*" RowSpacing="16" IsVisible="False">
-          <TextBlock Text="Dziennik sesji" Classes="page-title" />
+          <TextBlock Text="{StaticResource Ui.SessionLog}" Classes="page-title" />
           <Border Grid.Row="1" Classes="card" Padding="10">
             <TextBox x:Name="Journal" IsReadOnly="True" TextWrapping="Wrap" AcceptsReturn="True" Padding="7"
-                     BorderThickness="0" Background="Transparent" AutomationProperties.Name="Wpisy dziennika sesji"
-                     PlaceholderText="Tutaj pojawią się wyniki operacji i błędy połączenia."
+                     BorderThickness="0" Background="Transparent" AutomationProperties.Name="{StaticResource Ui.SessionLogEntries}"
+                     PlaceholderText="{StaticResource Ui.OperationResultsAndConnectionErrorsAppear}"
                      ScrollViewer.VerticalScrollBarVisibility="Auto" />
           </Border>
         </Grid>
       </Grid>
       <DockPanel Grid.Row="2" Margin="0,7,0,0">
-        <Button x:Name="CancelToolsDownload" DockPanel.Dock="Right" Content="Anuluj pobieranie" Classes="form-action"
+        <Button x:Name="CancelToolsDownload" DockPanel.Dock="Right" Content="{StaticResource Ui.CancelDownload}" Classes="form-action"
                 IsVisible="False" Click="CancelClientTools" />
         <ProgressBar x:Name="Progress" Width="79" Height="5" Margin="0,0,10,0" IsIndeterminate="True" IsVisible="False" />
         <TextBlock x:Name="Status" TextWrapping="Wrap" Foreground="{StaticResource Slate}" />

@@ -16,6 +16,8 @@
   <ItemGroup>
     <AvaloniaResource Include="Assets/Desk.png" />
     <AvaloniaResource Include="Assets/Desk.ico" />
+    <EmbeddedResource Include="UiStrings.en.json" LogicalName="UiStrings.en.json" WithCulture="false" />
+    <EmbeddedResource Include="UiStrings.pl.json" LogicalName="UiStrings.pl.json" WithCulture="false" />
     <EmbeddedResource Include="PgToolPackages.json" LogicalName="PgToolPackages.json" />
     <PackageReference Include="Avalonia.Desktop" Version="12.2.0" />
     <PackageReference Include="Avalonia.Themes.Fluent" Version="12.2.0" />

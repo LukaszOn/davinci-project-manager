@@ -6,7 +6,11 @@ namespace ProjectLibraryDesk;
 
 public partial class App : Application
 {
-    public override void Initialize() => AvaloniaXamlLoader.Load(this);
+    public override void Initialize()
+    {
+        AvaloniaXamlLoader.Load(this);
+        UiText.AddResources(this);
+    }
 
     public override void OnFrameworkInitializationCompleted()
     {

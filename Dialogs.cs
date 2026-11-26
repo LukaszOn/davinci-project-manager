@@ -1,3 +1,4 @@
+using static ProjectLibraryDesk.UiText;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
@@ -11,7 +12,7 @@ public sealed class MemberDialog : Window
 {
     public MemberDialog(string action, Member? person, string library)
     {
-        Title = action switch { "create" => "Dodaj użytkownika", "edit" => "Edytuj użytkownika", _ => "Zmień hasło" };
+        Title = action switch { "create" => T("AddUser"), "edit" => T("EditUser"), _ => T("ChangePassword") };
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         ShowInTaskbar = false;
         CanResize = false;
@@ -23,40 +24,40 @@ public sealed class MemberDialog : Window
 
         var login = new TextBox { Text = person?.Login ?? "", MaxLength = 31 };
         var display = new TextBox { Text = person?.Name ?? "", MaxLength = 80 };
-        var role = new ComboBox { ItemsSource = new[] { "Współpracownik", "Administrator panelu" }, SelectedIndex = person?.Role == "administrator" ? 1 : 0 };
+        var role = new ComboBox { ItemsSource = new[] { T("Collaborator"), T("PanelAdministrator") }, SelectedIndex = person?.Role == "administrator" ? 1 : 0 };
         if (action == "password") content.Children.Add(new TextBlock { Text = person!.Login, FontSize = 17, FontWeight = FontWeight.SemiBold });
         else
         {
-            AddField(content, "Nazwa osoby", display);
-            AddField(content, "Login w Resolve", login);
-            AddField(content, "Rola w module kont", role);
+            AddField(content, T("DisplayName"), display);
+            AddField(content, T("ResolveUsername"), login);
+            AddField(content, T("AccountRole"), role);
         }
 
         var password = new TextBox { MaxLength = 128, PasswordChar = '●' };
         var confirmation = new TextBox { MaxLength = 128, PasswordChar = '●' };
         if (action != "edit")
         {
-            AddField(content, "Hasło użytkownika", password);
-            AddField(content, "Powtórz hasło", confirmation);
+            AddField(content, T("UserPassword"), password);
+            AddField(content, T("RepeatPassword"), confirmation);
         }
-        var grant = new CheckBox { Content = $"Nadaj dostęp do {library}", IsChecked = true, Margin = new Thickness(0, 2, 0, 8) };
+        var grant = new CheckBox { Content = T("GrantAccessTo", library), IsChecked = true, Margin = new Thickness(0, 2, 0, 8) };
         if (action == "create") content.Children.Add(grant);
 
         var feedback = new TextBlock { Foreground = Brushes.DarkRed, TextWrapping = TextWrapping.Wrap };
         content.Children.Add(feedback);
-        AddButtons(this, content, "Zapisz", () =>
+        AddButtons(this, content, T("Save"), () =>
         {
             string? secret = password.Text;
             if (action != "edit" && (secret is null || secret.Length < 8 || secret != confirmation.Text))
             {
-                feedback.Text = "Wpisz dwa razy to samo hasło. Użyj co najmniej 8 znaków.";
+                feedback.Text = T("EnterTheSamePasswordTwiceUse");
                 return;
             }
             string username = login.Text?.Trim().ToLowerInvariant() ?? "";
             string label = display.Text?.Trim() ?? "";
             if (username.Length == 0 || label.Length == 0)
             {
-                feedback.Text = "Podaj nazwę osoby i jej login.";
+                feedback.Text = T("EnterADisplayNameAndUsername");
                 return;
             }
             var result = new MemberInput(username, label, role.SelectedIndex == 1 ? "administrator" : "collaborator",
@@ -80,7 +81,7 @@ public sealed class MemberDialog : Window
     internal static void AddButtons(Window dialog, Panel panel, string caption, Action accept)
     {
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 13, 0, 0) };
-        var cancel = new Button { Content = "Anuluj" };
+        var cancel = new Button { Content = T("Cancel") };
         var confirm = new Button { Content = caption };
         confirm.Classes.Add("primary");
         cancel.Click += (_, _) => dialog.Close();
@@ -120,7 +121,7 @@ internal static class TextDialog
         };
         var panel = new StackPanel { Margin = new Thickness(22) };
         panel.Children.Add(new TextBlock { Text = message, TextWrapping = TextWrapping.Wrap });
-        MemberDialog.AddButtons(dialog, panel, "Potwierdź", () => dialog.Close(true));
+        MemberDialog.AddButtons(dialog, panel, T("Confirm"), () => dialog.Close(true));
         dialog.Content = panel;
         return dialog.ShowDialog<bool>(owner);
     }
@@ -132,19 +133,19 @@ internal static class SetupDialog
     {
         var window = new Window
         {
-            Title = "Przygotuj obsługę kont", WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Title = T("SetUpAccountManagement"), WindowStartupLocation = WindowStartupLocation.CenterOwner,
             Width = 695, MinWidth = 650, SizeToContent = SizeToContent.Height, ShowInTaskbar = false,
             Background = Brushes.White,
         };
         var content = new StackPanel { Margin = new Thickness(21) };
         content.Children.Add(new TextBlock { Text = $"{library} na {server}", FontSize = 20, FontWeight = FontWeight.SemiBold });
-        AddText("Administrator serwera wykonuje ten krok przed rejestracją biblioteki. Reguły w pg_hba.conf ograniczają logowanie kont z panelu do bibliotek, które im przydzielisz.");
-        AddText("Dopisz te dwie reguły na serwerze przed regułami odrzucenia grupy resolve_panel_members i regułami ogólnymi.");
+        AddText(T("AServerAdministratorMustCompleteThis"));
+        AddText(T("AddTheseTwoRulesOnThe"));
         AddRules(rules);
-        AddText("Dodaj poniższą blokadę raz dla całej instancji, pod regułami bibliotek i przed regułami ogólnymi.");
+        AddText(T("AddTheFollowingRejectionRuleOnce"));
         AddRules("local all +resolve_panel_members reject\r\nhost all +resolve_panel_members all reject");
-        AddText("Zapisz i przeładuj konfigurację PostgreSQL. Następnie kliknij Zainstaluj moduł. Instalacja rejestruje bibliotekę i tworzy funkcje do nadawania dostępu.");
-        MemberDialog.AddButtons(window, content, "Zainstaluj moduł", () => window.Close(true));
+        AddText(T("SaveAndReloadThePostgreSQLConfiguration"));
+        MemberDialog.AddButtons(window, content, T("InstallModule"), () => window.Close(true));
         window.Content = content;
         return window.ShowDialog<bool>(owner);
 

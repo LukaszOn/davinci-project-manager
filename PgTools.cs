@@ -1,3 +1,4 @@
+using static ProjectLibraryDesk.UiText;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
@@ -15,7 +16,7 @@ public sealed class PgTools(string? toolsDirectory)
         string pgDump = Path.Combine(folder, PgClientTools.FileName("pg_dump"));
         string pgRestore = Path.Combine(folder, PgClientTools.FileName("pg_restore"));
         if (File.Exists(destination))
-            throw new InvalidOperationException("Plik o tej nazwie już istnieje. Nadaj kopii inną nazwę.");
+            throw new InvalidOperationException(T("AFileWithThisNameAlready"));
         string partial = destination + $".{Guid.NewGuid():N}.partial";
         try
         {
@@ -64,7 +65,7 @@ public sealed class PgTools(string? toolsDirectory)
             }
             catch (InvalidOperationException error)
             {
-                throw new InvalidOperationException($"Utworzono bazę {target}, lecz odtwarzanie zakończyło się błędem.\n{error.Message}", error);
+                throw new InvalidOperationException(T("CreatedDatabaseButTheRestoreFailed", target, error.Message), error);
             }
         }
         finally
@@ -80,7 +81,7 @@ public sealed class PgTools(string? toolsDirectory)
         string psql = Path.Combine(folder, PgClientTools.FileName("psql"));
         string scripts = Path.Combine(AppContext.BaseDirectory, "sql");
         if (!new[] { "control.sql", "library.sql", "register.sql" }.All(name => File.Exists(Path.Combine(scripts, name))))
-            throw new InvalidOperationException("Brakuje plików SQL. Rozpakuj całą paczkę programu.");
+            throw new InvalidOperationException(T("TheSQLFilesAreMissingExtract"));
         await server.RequireLibraryHbaAsync(library);
         await RunSqlAsync("postgres", "control.sql");
         await RunSqlAsync(library, "library.sql");
@@ -126,22 +127,22 @@ public sealed class PgTools(string? toolsDirectory)
             if (profile.RootCertificate is not null) start.Environment["PGSSLROOTCERT"] = profile.RootCertificate;
         }
         using var process = new Process { StartInfo = start };
-        if (!process.Start()) throw new InvalidOperationException("Nie udało się uruchomić narzędzia PostgreSQL.");
+        if (!process.Start()) throw new InvalidOperationException(T("CouldNotStartThePostgreSQLTool"));
         Task<string> output = process.StandardOutput.ReadToEndAsync();
         Task<string> errors = process.StandardError.ReadToEndAsync();
         await process.WaitForExitAsync();
         string diagnostic = (await errors).Trim();
         if (server is not null && !string.IsNullOrEmpty(server.Password))
-            diagnostic = diagnostic.Replace(server.Password, "[hasło]", StringComparison.Ordinal);
+            diagnostic = diagnostic.Replace(server.Password, T("Password"), StringComparison.Ordinal);
         if (process.ExitCode != 0)
         {
             if (diagnostic.Length > 1600) diagnostic = diagnostic[..1600];
-            throw new InvalidOperationException($"{Path.GetFileName(exe)} zakończył pracę kodem {process.ExitCode}.\n{diagnostic}");
+            throw new InvalidOperationException(T("ExitedWithCodeN", Path.GetFileName(exe), process.ExitCode, diagnostic));
         }
         return await output;
     }
 }
 
 internal sealed class PgToolsUnavailableException(int? major) : InvalidOperationException(major is int version
-    ? $"Brakuje narzędzi klienta PostgreSQL {version}. Pobierz je lub wskaż folder w widoku Połączenia."
-    : "Brakuje pg_restore. Wskaż folder narzędzi lub połącz się z serwerem, aby dobrać zestaw.");
+    ? T("PostgreSQLClientToolsAreMissingDownload", version)
+    : T("PgRestoreIsMissingSelectA"));

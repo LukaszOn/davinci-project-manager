@@ -1,3 +1,4 @@
+using static ProjectLibraryDesk.UiText;
 using System.Globalization;
 using System.IO;
 using System.Security.Cryptography;
@@ -23,8 +24,8 @@ public sealed record PgIdentity(string Username, int Version, bool CanCreateData
 
 public sealed record Member(string Login, string Name, string Role, bool Enabled, string[] Libraries)
 {
-    public string RoleLabel => Role == "administrator" ? "Administrator panelu" : "Współpracownik";
-    public string State => Enabled ? "Aktywne" : "Zablokowane";
+    public string RoleLabel => Role == "administrator" ? T("PanelAdministrator") : T("Collaborator");
+    public string State => Enabled ? T("Active") : T("Locked");
     public string LibraryList => string.Join(", ", Libraries);
     public int LibraryCount => Libraries.Length;
     public string Initials => string.Concat(Name.Split(' ', StringSplitOptions.RemoveEmptyEntries)
@@ -110,7 +111,7 @@ public sealed class PgServer(ServerProfile profile, string password)
             """, connection);
         await using var row = await command.ExecuteReaderAsync();
         if (!await row.ReadAsync())
-            throw new InvalidOperationException("Nie udało się odczytać tożsamości konta PostgreSQL.");
+            throw new InvalidOperationException(T("CouldNotReadThePostgreSQLAccount"));
         return new(row.GetString(0), row.GetInt32(1), row.GetBoolean(2), row.GetBoolean(3));
     }
 
@@ -125,12 +126,12 @@ public sealed class PgServer(ServerProfile profile, string password)
         try
         {
             if (await inspection.ExecuteScalarAsync() is not true)
-                return new(false, false, "Aby zarządzać kontami, zainstaluj moduł SQL na tym serwerze.", []);
+                return new(false, false, T("InstallTheSQLModuleOnThis"), []);
 
             await using var registered = new NpgsqlCommand("SELECT EXISTS (SELECT FROM resolve_access.available_libraries WHERE name = @library)", connection);
             registered.Parameters.AddWithValue("library", database);
             if (await registered.ExecuteScalarAsync() is not true)
-                return new(true, false, "Zarejestruj tę bibliotekę w module dostępu, aby zarządzać jej użytkownikami.", []);
+                return new(true, false, T("RegisterThisLibraryWithTheAccess"), []);
 
             await using var command = new NpgsqlCommand("""
                 SELECT username::text, label, account_role, enabled, libraries::text[]
@@ -140,11 +141,11 @@ public sealed class PgServer(ServerProfile profile, string password)
             await using var rows = await command.ExecuteReaderAsync();
             while (await rows.ReadAsync())
                 members.Add(new(rows.GetString(0), rows.GetString(1), rows.GetString(2), rows.GetBoolean(3), rows.GetFieldValue<string[]>(4)));
-            return new(true, true, "Konta zarządzane na tym serwerze. Przypisania zmieniasz dla wybranej biblioteki.", members);
+            return new(true, true, T("TheseAccountsAreManagedOnThis"), members);
         }
         catch (PostgresException error) when (error.SqlState == PostgresErrorCodes.InsufficientPrivilege)
         {
-            return new(false, false, "Wybrane konto PostgreSQL nie ma dostępu do modułu użytkowników.", []);
+            return new(false, false, T("TheSelectedPostgreSQLAccountCannotAccess"), []);
         }
     }
 
@@ -157,13 +158,13 @@ public sealed class PgServer(ServerProfile profile, string password)
         {
             ValidateLogin(nextLogin);
             if (label.Trim().Length is < 1 or > 80 || role is not ("collaborator" or "administrator"))
-                throw new InvalidOperationException("Sprawdź nazwę osoby i rolę.");
+                throw new InvalidOperationException(T("CheckTheDisplayNameAndAccount"));
         }
         CredentialHashes? hashes = null;
         if (operation is "create" or "password")
         {
             if (newPassword is null || newPassword.Length is < 8 or > 128 || newPassword.Contains('\0'))
-                throw new InvalidOperationException("Hasło musi mieć od 8 do 128 znaków.");
+                throw new InvalidOperationException(T("ThePasswordMustBeCharactersLong"));
             hashes = await Task.Run(() => CredentialHashes.Create(newPassword));
         }
 
@@ -200,7 +201,7 @@ public sealed class PgServer(ServerProfile profile, string password)
             try { await endSessions.ExecuteNonQueryAsync(); }
             catch (NpgsqlException error)
             {
-                throw new InvalidOperationException("Dostęp zmieniono. Nie potwierdzono zakończenia otwartych sesji.", error);
+                throw new InvalidOperationException(T("AccessChangedClosingOpenSessionsCould"), error);
             }
         }
     }
@@ -230,23 +231,23 @@ public sealed class PgServer(ServerProfile profile, string password)
     public async Task CreateRestoreDatabaseAsync(string target)
     {
         if (!Regex.IsMatch(target, @"\A[a-z][a-z0-9_]{1,62}\z", RegexOptions.CultureInvariant))
-            throw new InvalidOperationException("Nazwa nowej bazy musi mieć 2–63 znaki. Użyj małych liter, cyfr i podkreśleń.");
+            throw new InvalidOperationException(T("UseLowercaseLettersDigitsAndUnderscores"));
         await using var connection = Connection();
         await connection.OpenAsync();
         if (!(await IdentifyAsync(connection)).CanCreateDatabase)
-            throw new InvalidOperationException("Do utworzenia bazy potrzebne jest konto PostgreSQL z uprawnieniem CREATEDB.");
+            throw new InvalidOperationException(T("CreatingADatabaseRequiresAPostgreSQL"));
         await using var command = new NpgsqlCommand($"CREATE DATABASE \"{target}\" TEMPLATE template0", connection);
         try { await command.ExecuteNonQueryAsync(); }
         catch (PostgresException error) when (error.SqlState == PostgresErrorCodes.DuplicateDatabase)
         {
-            throw new InvalidOperationException("Baza o tej nazwie już istnieje. Wybierz inną nazwę.", error);
+            throw new InvalidOperationException(T("ADatabaseWithThatNameAlready"), error);
         }
     }
 
     public static string LibraryAccessRole(string database)
     {
         if (!Regex.IsMatch(database, @"\A[A-Za-z0-9_]{1,63}\z", RegexOptions.CultureInvariant))
-            throw new InvalidOperationException("Kreator obsługuje nazwy baz złożone z liter ASCII, cyfr i podkreśleń.");
+            throw new InvalidOperationException(T("TheSetupWizardSupportsDatabaseNames"));
         // Matches resolve_access.register and the PostgreSQL role installed in the library.
         return "resolve_lib_" + Convert.ToHexStringLower(MD5.HashData(Encoding.UTF8.GetBytes(database)));
     }
@@ -258,17 +259,17 @@ public sealed class PgServer(ServerProfile profile, string password)
         await connection.OpenAsync();
         PgIdentity identity = await IdentifyAsync(connection);
         if (!identity.IsSuperuser)
-            throw new InvalidOperationException("Pierwszą konfigurację modułu wykonuje superużytkownik PostgreSQL.");
+            throw new InvalidOperationException(T("APostgreSQLSuperuserMustPerformThe"));
         if (identity.Major < 13)
-            throw new InvalidOperationException("Kreator obsługuje PostgreSQL 13 lub nowszy.");
+            throw new InvalidOperationException(T("TheSetupWizardSupportsPostgreSQLOr"));
         if (!string.Equals(Profile.MaintenanceDb, "postgres", StringComparison.Ordinal))
-            throw new InvalidOperationException("W profilu ustaw bazę połączenia na postgres przed instalacją modułu.");
+            throw new InvalidOperationException(T("SetTheConnectionDatabaseToPostgres"));
         if (database == Profile.MaintenanceDb)
-            throw new InvalidOperationException("Wybierz bibliotekę projektów przed instalacją modułu.");
+            throw new InvalidOperationException(T("SelectAProjectLibraryBeforeInstalling"));
 
         await using var loaded = new NpgsqlCommand("SELECT (pg_stat_file(current_setting('hba_file'))).modification <= pg_conf_load_time()", connection);
         if (await loaded.ExecuteScalarAsync() is not true)
-            throw new InvalidOperationException("Przeładuj konfigurację PostgreSQL po zapisaniu pg_hba.conf, a następnie spróbuj ponownie.");
+            throw new InvalidOperationException(T("ReloadThePostgreSQLConfigurationAfterEditing"));
 
         string order = identity.Major >= 16 ? "rule_number" : "line_number";
         await using var command = new NpgsqlCommand($"SELECT type, database, user_name, auth_method, address, error FROM pg_hba_file_rules ORDER BY {order}", connection);
@@ -277,13 +278,13 @@ public sealed class PgServer(ServerProfile profile, string password)
         var tcp = new List<HbaRule>();
         while (await rows.ReadAsync())
         {
-            if (!rows.IsDBNull(5)) throw new InvalidOperationException("Plik pg_hba.conf zawiera błąd składni.");
+            if (!rows.IsDBNull(5)) throw new InvalidOperationException(T("PgHbaConfContainsASyntax"));
             var rule = new HbaRule(rows.GetString(0), rows.GetFieldValue<string[]>(1), rows.GetFieldValue<string[]>(2), rows.GetString(3),
                 rows.IsDBNull(4) ? null : rows.GetString(4));
             (rule.Type == "local" ? local : tcp).Add(rule);
         }
         if (!ValidHba(local, database, group, "local") || !ValidHba(tcp, database, group, "host"))
-            throw new InvalidOperationException("Najpierw dodaj reguły dostępu biblioteki i blokadę pozostałych baz, zgodnie z kreatorem.");
+            throw new InvalidOperationException(T("AddTheLibraryAccessRulesAnd"));
     }
 
     private static bool ValidHba(List<HbaRule> rules, string database, string group, string generalType)
@@ -303,7 +304,7 @@ public sealed class PgServer(ServerProfile profile, string password)
         if (!Regex.IsMatch(login, @"\A[a-z][a-z0-9_]{1,30}\z", RegexOptions.CultureInvariant) ||
             login == "postgres" || login.StartsWith("pg_", StringComparison.Ordinal) ||
             login.StartsWith("resolve_panel_", StringComparison.Ordinal) || login.StartsWith("resolve_lib_", StringComparison.Ordinal))
-            throw new InvalidOperationException("Wpisz login od 2 do 31 znaków. Zacznij małą literą.");
+            throw new InvalidOperationException(T("UseAUsernameOfCharactersStarting"));
     }
 }
 

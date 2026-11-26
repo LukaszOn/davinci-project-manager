@@ -38,7 +38,6 @@ cat > "$tree/usr/share/applications/davinci-project-manager.desktop" <<'DESKTOP'
 Type=Application
 Name=DaVinci Project Manager
 Comment=Manage PostgreSQL libraries for DaVinci Resolve
-Comment[pl]=Zarządzaj bibliotekami PostgreSQL dla DaVinci Resolve
 Exec=davinci-project-manager
 Icon=davinci-project-manager
 Terminal=false

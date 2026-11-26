@@ -1,33 +1,35 @@
 # DaVinci Project Manager
 
-DaVinci Project Manager to aplikacja desktopowa do obsługi sieciowych bibliotek projektów DaVinci Resolve. Zacząłem ją tworzyć, żeby w jednym miejscu przełączać się między bibliotekami na różnych serwerach, zarządzać dostępem zespołu i robić kopie baz.
+[English](README.md) · [Polski](README.pl.md)
 
-Przy tworzeniu aplikacji korzystałem z AI do pisania kodu. To nadal beta i mogą się zdarzyć błędy, zwłaszcza w konfiguracjach, których dotąd nie testowałem. Jeśli coś nie działa, daj znać w [Issues](https://github.com/LukaszOn/davinci-project-manager/issues).
+DaVinci Project Manager is a desktop app for DaVinci Resolve network project libraries. I started it so I could switch between libraries on different servers, manage team access, and back up databases from one place.
 
-## Instalacja
+I used AI to help write the code. The app is still early, and there may be bugs, especially in setups I have not tested. If something breaks, report it on [GitHub Issues](https://github.com/LukaszOn/davinci-project-manager/issues).
 
-Gotowe paczki są dostępne w [GitHub Releases](https://github.com/LukaszOn/davinci-project-manager/releases).
+## Installation
 
-| System | Paczki |
+Download a package from [GitHub Releases](https://github.com/LukaszOn/davinci-project-manager/releases).
+
+| System | Packages |
 | --- | --- |
-| Windows x64 | Instalator `Setup.exe` albo przenośny ZIP. Po rozpakowaniu ZIP-a uruchom `DaVinciProjectManager.exe`. |
-| macOS | Wybierz Apple Silicon albo Intel. Rozpakuj archiwum i przenieś aplikację do folderu Aplikacje. |
-| Linux x64 | Pakiet `.deb` dla Debiana i Ubuntu albo przenośne archiwum `.tar.gz`. |
+| Windows x64 | Run the `Setup.exe` installer or extract the portable ZIP and run `DaVinciProjectManager.exe`. |
+| macOS | Choose the Apple Silicon or Intel archive, extract it, and move the app to Applications. |
+| Linux x64 | Use the `.deb` package for Debian or Ubuntu, or extract the portable `.tar.gz` archive. |
 
-Windows i macOS mogą wyświetlić ostrzeżenie przy uruchamianiu tej bety. Instalator Windows jest niepodpisany, a paczki macOS nie mają notaryzacji Apple.
+The Windows installer is unsigned. The macOS packages are not notarized by Apple.
 
-## Jak to działa
+## How it works
 
-W zakładce **Połączenia** zapisujesz profil istniejącego serwera PostgreSQL. Po zalogowaniu wybierasz bibliotekę projektów. Możesz zapisać kilka profili i przełączać się między serwerami.
+In **Connections**, save a profile for an existing PostgreSQL server. Sign in and select a project library. You can keep several server profiles and switch between them.
 
-Kontami i dostępem do poszczególnych bibliotek zarządzasz przez moduł dostępu w PostgreSQL. Do pierwszej konfiguracji potrzebujesz administratora serwera. Szczegóły są w [instrukcji konfiguracji](GUIDE.md).
+The PostgreSQL access module manages accounts and library assignments. A server administrator sets it up the first time. See the [setup guide](GUIDE.md).
 
-Do ręcznego zapisywania i odtwarzania kopii aplikacja korzysta z `pg_dump` i `pg_restore`. Na Windows i macOS może pobrać odpowiednie narzędzia dla obsługiwanych wersji PostgreSQL. Na Linuksie korzysta z narzędzi zainstalowanych w systemie lub ze wskazanego katalogu.
+The app uses `pg_dump` and `pg_restore` to back up and restore libraries. On Windows and macOS, it can download client tools for supported PostgreSQL versions. On Linux, use system packages or select a folder containing the tools.
 
-Aplikacja jest napisana w C# na .NET 10. Interfejs jest zbudowany w Avalonia UI, a połączenia z PostgreSQL obsługuje Npgsql.
+English is the default. Select **Polski** from **Language** in the sidebar and restart the app to switch.
 
-DaVinci Project Manager jest niezależnym projektem na licencji [MIT](LICENSE).
+The app uses C#, .NET 10, Avalonia UI, and Npgsql. It is an independent project under the [MIT license](LICENSE).
 
 ## DaVinci Resolve Project Server
 
-Jeśli chcesz uruchomić własny serwer dla bibliotek Resolve, w repozytorium [DaVinci Resolve Project Server](https://github.com/LukaszOn/davinci-resolve-project-server) znajdziesz gotowe pliki Docker Compose i instrukcję konfiguracji.
+For a self-hosted server, the companion repository includes Docker Compose files and setup instructions. [DaVinci Resolve Project Server](https://github.com/LukaszOn/davinci-resolve-project-server)

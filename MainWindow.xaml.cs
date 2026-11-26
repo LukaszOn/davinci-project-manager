@@ -1,3 +1,4 @@
+using static ProjectLibraryDesk.UiText;
 using System.Globalization;
 using System.IO;
 using Avalonia.Controls;
@@ -29,6 +30,8 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        LanguagePicker.SelectedIndex = UiText.Language == "pl" ? 1 : 0;
+        LanguagePicker.SelectionChanged += ChangeLanguage;
         _connectionMonitor.Tick += CheckConnection;
         Closed += (_, _) =>
         {
@@ -36,12 +39,30 @@ public partial class MainWindow : Window
             _server = null;
         };
         try { _profiles = _store.Load(); }
-        catch (Exception error) { AddJournal("Odczyt profili: " + ErrorMessage(error)); }
+        catch (Exception error) { AddJournal(T("CouldNotLoadProfiles") + ErrorMessage(error)); }
         BindProfiles(_profiles.FirstOrDefault()?.Id);
         if (ProfileList.SelectedItem is null) Populate(null);
         OpenView(ConnectionsView, ConnectionsNav);
         RefreshMemberRows();
         UpdateControls();
+    }
+
+    private void ChangeLanguage(object? sender, SelectionChangedEventArgs e)
+    {
+        string language = LanguagePicker.SelectedIndex == 1 ? "pl" : "en";
+        try
+        {
+            UiText.SavePreference(language);
+            LanguageRestartHint.IsVisible = language != UiText.Language;
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+        {
+            LanguagePicker.SelectionChanged -= ChangeLanguage;
+            LanguagePicker.SelectedIndex = UiText.Language == "pl" ? 1 : 0;
+            LanguagePicker.SelectionChanged += ChangeLanguage;
+            LanguageRestartHint.IsVisible = false;
+            AddJournal(T("CouldNotSaveTheLanguagePreference"));
+        }
     }
 
     private void BindProfiles(Guid? selected)
@@ -72,8 +93,8 @@ public partial class MainWindow : Window
 
     private void UpdateProfilePaths()
     {
-        CertificatePath.Text = _certificate ?? "Domyślne certyfikaty systemu";
-        ToolsPath.Text = _tools ?? "Wykrywanie automatyczne";
+        CertificatePath.Text = _certificate ?? T("DefaultSystemCertificates");
+        ToolsPath.Text = _tools ?? T("AutomaticDetection");
         ResetCertificateButton.IsVisible = _certificate is not null;
         ResetToolsButton.IsVisible = _tools is not null;
     }
@@ -85,11 +106,11 @@ public partial class MainWindow : Window
         string user = Login.Text?.Trim() ?? "";
         string db = MaintenanceDb.Text?.Trim() ?? "";
         if (Uri.CheckHostName(host) == UriHostNameType.Unknown || host.Any(char.IsWhiteSpace))
-            throw new InvalidOperationException("Wpisz nazwę hosta lub adres IP bez portu i protokołu.");
+            throw new InvalidOperationException(T("EnterAHostnameOrIPAddress"));
         if (!int.TryParse(Port.Text, NumberStyles.None, CultureInfo.InvariantCulture, out int port) || port is < 1 or > 65535)
-            throw new InvalidOperationException("Wpisz port od 1 do 65535.");
+            throw new InvalidOperationException(T("EnterAPortFromTo"));
         if (string.IsNullOrWhiteSpace(user) || string.IsNullOrWhiteSpace(db))
-            throw new InvalidOperationException("Wpisz login i bazę do nawiązania połączenia.");
+            throw new InvalidOperationException(T("EnterTheUsernameAndTheDatabase"));
         var ssl = Enum.Parse<SslMode>((string?)(SslModeList.SelectedItem as ComboBoxItem)?.Tag ?? nameof(SslMode.VerifyFull));
         return new(_editingId, string.IsNullOrEmpty(name) ? host : name, host, port, user, db, ssl, _certificate, _tools);
     }
@@ -100,7 +121,7 @@ public partial class MainWindow : Window
         if (ProfileList.SelectedItem is not ServerProfile profile) return;
         Populate(profile);
         if (_server is not null && _server.Profile.Id != profile.Id)
-            Status.Text = "Kliknij Połącz, aby przełączyć aktywny serwer.";
+            Status.Text = T("SelectConnectToSwitchTheActive");
     }
 
     private void NewProfile(object sender, RoutedEventArgs e)
@@ -121,7 +142,7 @@ public partial class MainWindow : Window
             _profiles = updated;
             BindProfiles(profile.Id);
             LoginPassword.Text = password;
-            Status.Text = $"Zapisano profil {profile.Name}.";
+            Status.Text = T("SavedProfile", profile.Name);
         }
         catch (Exception error) { Report(error); }
     }
@@ -129,7 +150,7 @@ public partial class MainWindow : Window
     private async void DeleteProfile(object sender, RoutedEventArgs e)
     {
         if (ProfileList.SelectedItem is not ServerProfile profile ||
-            !await ConfirmAsync($"Usunąć zapisany profil {profile.Name} z tego komputera?")) return;
+            !await ConfirmAsync(T("RemoveSavedProfileFromThisComputer", profile.Name))) return;
         try
         {
             var updated = _profiles.Where(other => other.Id != profile.Id).ToList();
@@ -137,7 +158,7 @@ public partial class MainWindow : Window
             _profiles = updated;
             BindProfiles(null);
             Populate(null);
-            Status.Text = "Usunięto lokalny profil.";
+            Status.Text = T("LocalProfileRemoved");
         }
         catch (Exception error) { Report(error); }
     }
@@ -146,7 +167,7 @@ public partial class MainWindow : Window
     {
         var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
         {
-            Title = "Certyfikat CA serwera", FileTypeFilter = [new("Certyfikaty CA") { Patterns = ["*.crt", "*.pem", "*.cer"] }],
+            Title = T("ServerCACertificate"), FileTypeFilter = [new(T("CACertificates")) { Patterns = ["*.crt", "*.pem", "*.cer"] }],
         });
         if (files.FirstOrDefault()?.TryGetLocalPath() is not { } path) return;
         _certificate = path;
@@ -161,18 +182,18 @@ public partial class MainWindow : Window
 
     private async void SelectTools(object sender, RoutedEventArgs e)
     {
-        var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions { Title = "Katalog bin narzędzi PostgreSQL" });
+        var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions { Title = T("PostgreSQLToolsBinFolder") });
         if (folders.FirstOrDefault()?.TryGetLocalPath() is not { } path) return;
         _tools = path;
         UpdateProfilePaths();
-        Status.Text = _server is null ? "Zapisz profil, aby zachować katalog." : "Połącz ponownie, aby użyć narzędzi z nowego katalogu.";
+        Status.Text = _server is null ? T("SaveTheProfileToKeepThis") : T("ReconnectToUseToolsFromThe");
     }
 
     private void ResetTools(object sender, RoutedEventArgs e)
     {
         _tools = null;
         UpdateProfilePaths();
-        Status.Text = _server is null ? "Zapisz profil, aby zachować ustawienie." : "Połącz ponownie, aby użyć narzędzi z systemowej ścieżki PATH.";
+        Status.Text = _server is null ? T("SaveTheProfileToKeepThis2") : T("ReconnectToUseToolsFromThe2");
     }
 
     private async void Connect(object sender, RoutedEventArgs e)
@@ -197,7 +218,7 @@ public partial class MainWindow : Window
                 await RefreshClientToolsAsync();
                 await ShowLibrariesAsync(state.Libraries);
                 OpenView(UsersView, UsersNav);
-                return $"Połączono z {Endpoint(profile)} jako {state.Identity.Username}.";
+                return T("ConnectedToAs", Endpoint(profile), state.Identity.Username);
             }, showResult: false);
         }
         finally
@@ -214,7 +235,7 @@ public partial class MainWindow : Window
         OpenView(ConnectionsView, ConnectionsNav);
         UpdateControls();
         Status.Text = null;
-        AddJournal("Rozłączono.", showStatus: false);
+        AddJournal(T("Disconnected"), showStatus: false);
     }
 
     private void ClearConnection()
@@ -240,8 +261,8 @@ public partial class MainWindow : Window
         ConnectionBadge.Classes.Set("online", connected);
         ConnectionBadge.Classes.Set("connecting", !connected && profile is not null);
         ConnectionBadge.Classes.Set("offline", profile is null);
-        ConnectionState.Text = connected ? "Połączono" : profile is not null ? "Łączenie…" : "Rozłączono";
-        ActiveLibrary.Text = connected ? (LibraryList.SelectedItem as PgLibrary)?.Name ?? "Wybierz bibliotekę" : "—";
+        ConnectionState.Text = connected ? T("Connected") : profile is not null ? T("Connecting") : T("Disconnected2");
+        ActiveLibrary.Text = connected ? (LibraryList.SelectedItem as PgLibrary)?.Name ?? T("SelectALibrary") : "—";
         ActiveEndpoint.IsVisible = profile is not null;
         if (profile is not null)
         {
@@ -261,7 +282,7 @@ public partial class MainWindow : Window
             {
                 ClearConnection();
                 UpdateControls();
-                AddJournal($"Utracono połączenie z {Endpoint(server.Profile)}. Połącz się ponownie w widoku Połączenia.");
+                AddJournal(T("LostTheConnectionToReconnectFrom", Endpoint(server.Profile)));
             }
         }
         finally { _checkingConnection = false; }
@@ -271,13 +292,13 @@ public partial class MainWindow : Window
     {
         if (_server is not { } server) return;
         string? selected = (LibraryList.SelectedItem as PgLibrary)?.Name;
-        await RunAsync("Odświeżanie bibliotek", async () =>
+        await RunAsync(T("RefreshingLibraries"), async () =>
         {
             var state = await server.ConnectAsync();
             _identity = state.Identity;
             await RefreshClientToolsAsync();
             await ShowLibrariesAsync(state.Libraries, selected);
-            return "Odświeżono biblioteki.";
+            return T("LibrariesRefreshed");
         });
     }
 
@@ -297,7 +318,7 @@ public partial class MainWindow : Window
         await RunAsync("", async () =>
         {
             await ShowDirectoryAsync();
-            return $"Wybrano bibliotekę {ActiveLibrary.Text}.";
+            return T("SelectedLibrary", ActiveLibrary.Text);
         }, showResult: false);
     }
 
@@ -314,12 +335,12 @@ public partial class MainWindow : Window
         RefreshMemberRows();
         SetupNotice.IsVisible = library is not null;
         if (library is null) return;
-        DirectoryMessage.Text = "Sprawdzam obsługę kont tej biblioteki.";
+        DirectoryMessage.Text = T("CheckingAccountManagementForThisLibrary");
         DirectoryState result;
         try { result = await server.ReadDirectoryAsync(library.Name); }
         catch
         {
-            DirectoryMessage.Text = "Nie udało się odczytać listy kont. Odśwież listę bibliotek, aby spróbować ponownie.";
+            DirectoryMessage.Text = T("CouldNotReadAccountsRefreshThe");
             throw;
         }
         _memberControls = result.Registered;
@@ -412,11 +433,11 @@ public partial class MainWindow : Window
             || member.Login.Contains(query, StringComparison.OrdinalIgnoreCase)).ToArray();
         MemberList.ItemsSource = items;
         MemberList.SelectedItem = items.FirstOrDefault(member => member.Login == preferred) ?? items.FirstOrDefault();
-        MemberStats.Text = _membersLoaded ? $"Aktywne konta: {_directoryMembers.Count(member => member.Enabled)} z {_directoryMembers.Count}" : "Brak danych";
+        MemberStats.Text = _membersLoaded ? T("ActiveAccountsOf", _directoryMembers.Count(member => member.Enabled), _directoryMembers.Count) : T("NoData");
         EmptyDirectory.IsVisible = items.Length == 0;
-        EmptyDirectory.Text = !_membersLoaded ? (_server is null ? "Połącz się z serwerem w widoku Połączenia."
-            : LibraryList.SelectedItem is null ? "Wybierz bibliotekę w pasku bocznym." : "Lista kont jest niedostępna.")
-            : query.Length > 0 ? "Brak osób pasujących do wyszukiwania." : "Dodaj pierwszą osobę do biblioteki.";
+        EmptyDirectory.Text = !_membersLoaded ? (_server is null ? T("ConnectToAServerFromConnections")
+            : LibraryList.SelectedItem is null ? T("SelectALibraryInTheSidebar") : T("TheAccountListIsUnavailable"))
+            : query.Length > 0 ? T("NoPeopleMatchYourSearch") : T("AddTheFirstPersonToThe");
         MemberList.IsVisible = items.Length > 0;
         UpdateMemberDetail();
     }
@@ -437,15 +458,15 @@ public partial class MainWindow : Window
         DetailInitials.Text = member.Initials;
         DetailName.Text = member.Name;
         DetailRole.Text = $"{member.Login} · {member.RoleLabel}";
-        DetailCurrentLibrary.Text = library ?? "Wybierz bibliotekę";
-        DetailAssignment.Text = assigned ? "Przypisano" : "Bez dostępu";
-        DetailAccessButton.Content = assigned ? "Odbierz dostęp" : "Nadaj dostęp";
+        DetailCurrentLibrary.Text = library ?? T("SelectALibrary");
+        DetailAssignment.Text = assigned ? T("Assigned") : T("NoAccess");
+        DetailAccessButton.Content = assigned ? T("RevokeAccess") : T("GrantAccess");
         DetailAccessButton.IsEnabled = _memberControls;
-        LockButton.Content = member.Enabled ? "Zablokuj konto" : "Odblokuj konto";
+        LockButton.Content = member.Enabled ? T("LockAccount") : T("UnlockAccount");
         LockButton.Classes.Set("danger", member.Enabled);
         string[] others = member.Libraries.Where(name => name != library).ToArray();
         OtherLibraries.IsVisible = others.Length > 0;
-        OtherLibraries.Text = $"Pozostałe biblioteki z dostępem · {string.Join(", ", others)}";
+        OtherLibraries.Text = T("OtherLibrariesWithAccess", string.Join(", ", others));
     }
 
     private async void AddMember(object sender, RoutedEventArgs e) => await EditMemberAsync("create");
@@ -460,12 +481,12 @@ public partial class MainWindow : Window
         var form = new MemberDialog(action, person, library.Name);
         if (await form.ShowDialog<MemberInput?>(this) is not { } result) return;
         string login = person?.Login ?? result.Login;
-        await RunAsync("Zapisywanie konta", async () =>
+        await RunAsync(T("SavingAccount"), async () =>
         {
             await server.SaveMemberAsync(library.Name, action, login, result.Login, result.Name, result.Role, result.Password, result.Grant);
             if (action == "create") MemberSearch.Text = "";
             await ShowDirectoryAsync(result.Login);
-            return $"Zapisano konto {result.Login}.";
+            return T("SavedAccount", result.Login);
         });
     }
 
@@ -480,32 +501,32 @@ public partial class MainWindow : Window
     {
         if (!_memberControls || _server is not { } server || LibraryList.SelectedItem is not PgLibrary library || SelectedMember() is not { } member) return;
         string command = change == "toggle" ? (member.Enabled ? "disable" : "enable") : change;
-        if (command == "disable" && !await ConfirmAsync($"Zablokować konto {member.Login} na serwerze {Endpoint(server.Profile)}? Jego sesje zostaną zamknięte.")) return;
-        if (command == "revoke" && !await ConfirmAsync($"Odebrać {member.Login} dostęp do {library.Name}? Sesje w tej bibliotece zostaną zamknięte.")) return;
-        await RunAsync("Zmiana dostępu", async () =>
+        if (command == "disable" && !await ConfirmAsync(T("LockAccountOnItsSessionsWill", member.Login, Endpoint(server.Profile)))) return;
+        if (command == "revoke" && !await ConfirmAsync(T("RevokeAccessForToSessionsIn", member.Login, library.Name))) return;
+        await RunAsync(T("UpdatingAccess"), async () =>
         {
             await server.ChangeAccessAsync(command, member.Login, library.Name);
             await ShowDirectoryAsync(member.Login);
-            return $"Zapisano dostęp dla {member.Login}.";
+            return T("SavedAccessFor", member.Login);
         });
     }
 
     private Member? SelectedMember()
     {
         if (MemberList.SelectedItem is Member member) return member;
-        Status.Text = "Wybierz użytkownika na liście.";
+        Status.Text = T("SelectAUserFromTheList");
         return null;
     }
 
     private async void DeleteMember(object sender, RoutedEventArgs e)
     {
         if (!_memberControls || _server is not { } server || SelectedMember() is not { } member) return;
-        if (!await ConfirmAsync($"Usunąć konto {member.Login} na serwerze {Endpoint(server.Profile)}? Projekty zostaną zachowane.")) return;
-        await RunAsync("Usuwanie konta", async () =>
+        if (!await ConfirmAsync(T("DeleteAccountOnProjectsWillBe", member.Login, Endpoint(server.Profile)))) return;
+        await RunAsync(T("DeletingAccount"), async () =>
         {
             await server.DeleteMemberAsync(member.Login);
             await ShowDirectoryAsync();
-            return $"Usunięto konto {member.Login}.";
+            return T("DeletedAccount", member.Login);
         });
     }
 
@@ -518,11 +539,11 @@ public partial class MainWindow : Window
         string hostRule = server.Profile.SslMode == SslMode.Prefer ? "host" : "hostssl";
         string accessRules = $"local \"{library.Name}\" +{group} scram-sha-256\n{hostRule} \"{library.Name}\" +{group} all scram-sha-256";
         if (!await SetupDialog.ShowAsync(this, library.Name, Endpoint(server.Profile), accessRules)) return;
-        await RunAsync($"Przygotowywanie modułu dla {library.Name}", async () =>
+        await RunAsync(T("SettingUpTheModuleFor", library.Name), async () =>
         {
             await new PgTools(server.Profile.ToolsDirectory).InstallAccessModuleAsync(server, library.Name);
             await ShowDirectoryAsync();
-            return $"Możesz teraz dodawać użytkowników do {library.Name}.";
+            return T("YouCanNowAddUsersTo", library.Name);
         });
     }
 
@@ -533,15 +554,15 @@ public partial class MainWindow : Window
         string filename = new(library.Name.Select(character => invalid.Contains(character) ? '_' : character).ToArray());
         var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
         {
-            Title = "Zapisz kopię PostgreSQL", DefaultExtension = "backup",
+            Title = T("SavePostgreSQLBackup"), DefaultExtension = "backup",
             SuggestedFileName = $"{filename}_{DateTime.Now:yyyyMMdd_HHmmss}.backup", ShowOverwritePrompt = true,
-            FileTypeChoices = [new("Archiwum PostgreSQL") { Patterns = ["*.backup"] }],
+            FileTypeChoices = [new(T("PostgreSQLArchive")) { Patterns = ["*.backup"] }],
         });
         if (file?.TryGetLocalPath() is not { } path) return;
-        await RunAsync($"Kopia {library.Name}", async () =>
+        await RunAsync(T("BackupOf", library.Name), async () =>
         {
             await new PgTools(server.Profile.ToolsDirectory).CreateBackupAsync(server, library.Name, path);
-            return $"Zapisano kopię i odczytano spis archiwum.\n{path}";
+            return T("BackupSavedAndArchiveContentsVerified", path);
         });
     }
 
@@ -549,10 +570,10 @@ public partial class MainWindow : Window
     {
         string? archive = await SelectArchiveAsync();
         if (archive is null) return;
-        await RunAsync("Sprawdzanie archiwum", async () =>
+        await RunAsync(T("InspectingArchive"), async () =>
         {
             int entries = await new PgTools(_server?.Profile.ToolsDirectory ?? _tools).InspectArchiveAsync(archive);
-            return $"Odczytano spis archiwum. Liczba wpisów: {entries}.";
+            return T("ArchiveInspectedEntries", entries);
         });
     }
 
@@ -561,18 +582,18 @@ public partial class MainWindow : Window
         if (_server is not { } server || _identity?.CanCreateDatabase is not true) return;
         string? archive = await SelectArchiveAsync();
         if (archive is null) return;
-        string? requested = await TextDialog.PromptAsync(this, "Odtwórz do nowej bazy", $"Nowa baza na {Endpoint(server.Profile)}",
+        string? requested = await TextDialog.PromptAsync(this, T("RestoreToANewDatabase"), T("NewDatabaseOn", Endpoint(server.Profile)),
             $"resolve_restore_{DateTime.Now:yyyyMMdd_HHmmss}");
         if (string.IsNullOrWhiteSpace(requested)) return;
         string target = requested.Trim();
-        if (!await ConfirmAsync($"Odtworzyć kopię {Path.GetFileName(archive)} do nowej bazy {target} na {Endpoint(server.Profile)}?")) return;
-        await RunAsync($"Odtwarzanie do {target}", async () =>
+        if (!await ConfirmAsync(T("RestoreBackupToTheNewDatabase", Path.GetFileName(archive), target, Endpoint(server.Profile)))) return;
+        await RunAsync(T("RestoringTo", target), async () =>
         {
             await new PgTools(server.Profile.ToolsDirectory).RestoreAsync(server, archive, target);
             var state = await server.ConnectAsync();
             _identity = state.Identity;
             await ShowLibrariesAsync(state.Libraries, target);
-            return $"Odtworzono {target}. Otwórz projekt w Resolve, aby sprawdzić bibliotekę.";
+            return T("RestoredOpenAProjectInResolve", target);
         });
     }
 
@@ -580,7 +601,7 @@ public partial class MainWindow : Window
     {
         var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
         {
-            Title = "Wybierz archiwum PostgreSQL", FileTypeFilter = [new("Kopie PostgreSQL") { Patterns = ["*.backup", "*.dump", "*.tar"] }],
+            Title = T("SelectAPostgreSQLArchive"), FileTypeFilter = [new(T("PostgreSQLBackups")) { Patterns = ["*.backup", "*.dump", "*.tar"] }],
         });
         return files.FirstOrDefault()?.TryGetLocalPath();
     }
@@ -620,8 +641,8 @@ public partial class MainWindow : Window
         SetupButton.IsVisible = _canPrepareAccess;
         BackupButton.IsEnabled = connected && LibraryList.SelectedItem is PgLibrary;
         RestoreButton.IsEnabled = _identity?.CanCreateDatabase is true;
-        ToolTip.SetTip(BackupButton, BackupButton.IsEnabled ? null : connected ? "Wybierz bibliotekę w pasku bocznym." : "Połącz się z serwerem, aby zapisać kopię.");
-        ToolTip.SetTip(RestoreButton, RestoreButton.IsEnabled ? null : connected ? "Połącz się jako użytkownik z uprawnieniem do tworzenia baz." : "Połącz się z serwerem docelowym.");
+        ToolTip.SetTip(BackupButton, BackupButton.IsEnabled ? null : connected ? T("SelectALibraryInTheSidebar") : T("ConnectToAServerToSave"));
+        ToolTip.SetTip(RestoreButton, RestoreButton.IsEnabled ? null : connected ? T("ConnectAsAnAccountWithPermission") : T("ConnectToTheDestinationServer"));
         UpdateClientToolsUi();
     }
 
@@ -629,7 +650,7 @@ public partial class MainWindow : Window
     {
         if (!_busy) return;
         e.Cancel = true;
-        Status.Text = "Operacja trwa. Zamknij aplikację po zakończeniu.";
+        Status.Text = T("AnOperationIsInProgressClose");
     }
 
     private Task<bool> ConfirmAsync(string text) => TextDialog.ConfirmAsync(this, text);
@@ -649,8 +670,8 @@ public partial class MainWindow : Window
 
     private static string ErrorMessage(Exception error) => error switch
     {
-        PostgresException postgres => $"PostgreSQL {postgres.SqlState} · {postgres.MessageText}",
-        NpgsqlException => "Połączenie z PostgreSQL nie powiodło się. Sprawdź adres, dane logowania i ustawienia TLS.",
+        PostgresException postgres => $"PostgreSQL {postgres.SqlState} · {UiText.SqlError(postgres.MessageText)}",
+        NpgsqlException => T("CouldNotConnectToPostgreSQLCheck"),
         _ => error.Message,
     };
 

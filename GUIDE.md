@@ -1,64 +1,64 @@
-# Instrukcja DaVinci Project Manager
+# DaVinci Project Manager guide
 
-Samodzielna aplikacja na Windows, macOS i Linux do obsługi bibliotek projektów DaVinci Resolve na PostgreSQL. Każdy profil zawiera adres i port instancji oraz login PostgreSQL. Po połączeniu wybierasz jedną z baz w tej instancji. Profile są zapisywane lokalnie, a hasło jest używane w bieżącej sesji.
+DaVinci Project Manager manages DaVinci Resolve project libraries on Windows, macOS, and Linux. Each server profile stores the PostgreSQL address, port, and username on your computer. The app uses your password for the current session.
 
-DaVinci Project Manager is a free, independent PostgreSQL utility for DaVinci Resolve project libraries. It supports multiple server profiles, library access management, backups and restores. The current interface is in Polish. DaVinci Resolve is a product of Blackmagic Design. This project is independent of Blackmagic Design.
+Start from **Connections**. The header shows the connection status, active library, and server address on every page. **Users** manages library access. **Backup and restore** runs archive operations, and **Session log** shows the results. Profiles saved by Project Library Desk still work.
 
-Zacznij w widoku **Połączenia**. Górny pasek na każdej stronie pokazuje stan połączenia, aktywną bibliotekę i adres serwera. W widoku **Użytkownicy** wybierz osobę z listy, aby zarządzać dostępem do biblioteki. W widokach **Kopie i odtwarzanie** oraz **Dziennik sesji** znajdziesz operacje na kopiach i ich wyniki. Profile zapisane w Project Library Desk są dostępne pod nową nazwą aplikacji.
+English is the default. To switch, select **Polski** under **Language** in the sidebar and restart the app.
 
-## Uruchomienie
+## Install and connect
 
-- **Windows x64.** Uruchom plik `Windows-x64-Setup.exe` z danego wydania. Instalator dodaje skrót do menu Start i wpis w ustawieniach aplikacji Windows. Wersję przenośną uruchomisz przez `DaVinciProjectManager.exe` w rozpakowanym ZIP-ie.
-- **macOS.** Wybierz paczkę Apple Silicon lub Intel. Rozpakuj ją i przenieś `DaVinci Project Manager.app` do folderu Aplikacje.
-- **Debian i Ubuntu x64.** Zainstaluj plik `Linux-amd64.deb` systemowym instalatorem pakietów lub przez `sudo apt install ./nazwa-pliku.deb`. W pozostałych dystrybucjach możesz rozpakować `Linux-x64.tar.gz` i uruchomić `./DaVinciProjectManager`.
+- **Windows x64.** Run `Windows-x64-Setup.exe` from the release. It adds a Start menu shortcut and an entry in Windows app settings. For the portable package, extract the ZIP and run `DaVinciProjectManager.exe`.
+- **macOS.** Choose Apple Silicon or Intel, extract the archive, and move `DaVinci Project Manager.app` to Applications.
+- **Debian and Ubuntu x64.** Install `Linux-amd64.deb`, for example with `sudo apt install ./package-name.deb`. On other distributions, extract `Linux-x64.tar.gz` and run `./DaVinciProjectManager`.
 
-Paczki zawierają środowisko .NET. Na Linuksie wymagane są biblioteki systemowe wskazane w [dokumentacji Avalonia](https://docs.avaloniaui.net/docs/supported-platforms). Wersje Windows i macOS są wydaniami beta bez podpisu wydawcy. Pakiety macOS nie są notaryzowane.
+The packages include .NET. Linux also needs the system libraries listed in the [Avalonia documentation](https://docs.avaloniaui.net/docs/supported-platforms). The Windows installer is unsigned and the macOS packages are not notarized.
 
-1. Dodaj profil. Wpisz nazwę, adres, port (zwykle `5432`), login i hasło PostgreSQL. W **Opcjach połączenia** jako bazę startową wpisz `postgres` lub nazwę podaną przez dostawcę.
-2. Dla serwera z certyfikatem wybierz **TLS z weryfikacją**. Dodaj certyfikat CA, jeśli serwer korzysta z prywatnego CA. W zaufanej sieci z serwerem bez TLS możesz wybrać **TLS opcjonalny**. Ikony informacji przy ustawieniach wyświetlają podpowiedzi.
-3. Kliknij **Połącz** i wybierz bazę z listy. Przy następnym połączeniu wystarczy wybrać zapisany profil i ponownie podać hasło.
+1. Add a profile with a name, host, port (usually `5432`), and PostgreSQL credentials. Under **Connection options**, set **Connection database** to `postgres` or the database supplied by your provider.
+2. Choose **Verify TLS** for a server with a certificate. Select a CA certificate if the server uses a private CA. **Prefer TLS** is available for trusted networks where the server may lack TLS. The information icons explain the connection options.
+3. Select **Connect** and choose a library. Next time, select the saved profile and enter the password again.
 
-## Konta i pierwsza konfiguracja instancji
+## Set up account management
 
-Instancja PostgreSQL potrzebuje istniejącego konta do nawiązania pierwszego połączenia. Zwykle jest nim `postgres`, utworzony podczas instalacji PostgreSQL. Loginy są wspólne dla instancji, a dostęp do bibliotek przydzielasz osobno.
+Use an existing PostgreSQL account to connect, usually the `postgres` account created during setup. PostgreSQL logins apply across the instance. You assign access to each library separately.
 
-- W istniejącej instalacji panelu WWW program rozpoznaje rejestr i konta przechowywane w `resolve_access`. Moduł działa bez usługi WWW. Administrator panelu jest rolą w rejestrze kont, a uprawnienia tej aplikacji wynikają z loginu PostgreSQL użytego w profilu.
-- Na serwerze bez rejestru połącz się jako superużytkownik PostgreSQL, wybierz bibliotekę i kliknij **Przygotuj obsługę kont**. Kreator pokaże reguły `pg_hba.conf`, które administrator serwera dodaje i przeładowuje. Program sprawdza reguły przed rejestracją biblioteki. Następnie możesz założyć pierwsze indywidualne konto. W przypadku kilku bibliotek umieść reguły każdej z nich przed jednym zestawem reguł odrzucających pozostałe bazy dla grupy `resolve_panel_members`.
-- Do późniejszej obsługi kont możesz użyć delegowanego loginu wyposażonego w uprawnienia do funkcji rejestru. Dostęp do panelu i dostęp do kopii można nadawać osobno.
+- If the server already has the web panel module, the app recognizes the `resolve_access` account registry. The module can work without the web service. Panel administrator is a role in the registry. The desktop app uses the privileges of the PostgreSQL login in the selected profile.
+- For a new instance, connect as a PostgreSQL superuser, select a library, and select **Set up account management**. The wizard displays the `pg_hba.conf` rules for the server administrator to add and reload. The app checks the rules before registering the library. Then you can create individual accounts. For several libraries, place all library rules above the shared rejection rules for `resolve_panel_members`.
+- For ongoing management, you can use a delegated login with access to registry functions. Account management and backup permissions can be granted separately.
 
-## Narzędzia PostgreSQL, kopie i odtwarzanie
+## PostgreSQL tools, backups, and restores
 
-Po połączeniu widok **Połączenia** pokazuje wersję wymaganych narzędzi i ich dostępność. Aplikacja sprawdza folder ustawiony w profilu, zestawy pobrane wcześniej i typowe lokalizacje narzędzi w systemie. Jeden zestaw działa ze wszystkimi serwerami tej samej głównej wersji.
+After you connect, **Connections** shows the required tool version and whether it is available. The app checks the folder selected in your profile, downloaded toolsets, and common system locations. One toolset can serve several PostgreSQL servers of the same major version.
 
-- **Windows x64 i macOS (Apple Silicon i Intel).** Przycisk **Pobierz narzędzia** jest dostępny dla PostgreSQL 14–19. Aplikacja weryfikuje SHA-256 archiwum wydawcy i zapisuje programy `pg_dump`, `pg_restore`, `psql` i potrzebne pliki w katalogu użytkownika. Pobieranie zaczyna się po kliknięciu przycisku. Archiwa źródłowe zawierają też inne składniki i mogą mieć kilkaset MB.
-- **Linux.** Aplikacja proponuje pakiet kliencki właściwy dla dystrybucji, np. `postgresql-client-16` na systemie z odpowiednim repozytorium APT. Po instalacji w systemie kliknij **Sprawdź ponownie**.
-- **Własne narzędzia.** W **Opcjach połączenia** możesz wskazać katalog `bin`. Zapisz profil i połącz się ponownie, aby użyć go dla bieżącej sesji.
+- **Windows x64 and macOS (Apple Silicon and Intel).** **Download tools** is available for PostgreSQL 14–19. The app verifies the publisher's SHA-256 checksum and saves `pg_dump`, `pg_restore`, `psql`, and their dependencies in your user directory. Downloads start when you select the button. The original archives can be several hundred megabytes.
+- **Linux.** Install a client package for your distribution, such as `postgresql-client-16` from an appropriate APT repository, then select **Check again**.
+- **Custom tools.** Choose the `bin` folder in **Connection options**, save your profile, and reconnect.
 
-Kopie są plikami PostgreSQL `.backup`. Archiwa `.resolve.backup` otwiera kreator Restore w DaVinci Resolve.
+The app creates PostgreSQL `.backup` files. DaVinci Resolve's Restore wizard opens `.resolve.backup` archives.
 
-- **Zapisz kopię** zapisuje archiwum na komputerze i sprawdza, czy da się odczytać jego spis obiektów. Pełną próbę wykonujesz przez odtworzenie i otwarcie projektu w Resolve.
-- **Odtwórz kopię** używa aktualnie połączonego profilu jako celu. Możesz wybrać inną instancję niż źródłowa. Program tworzy bazę pod nową nazwą. Konto musi mieć uprawnienie `CREATEDB`. Poszczególne obiekty archiwum, np. rozszerzenia, mogą wymagać dodatkowych uprawnień.
-- Odtworzenie danych i przydział użytkowników są osobnymi krokami. Po odtworzeniu biblioteki zarejestruj ją dla użytkowników na docelowej instancji. Rolę, ustawienia rejestru i konta trzeba objąć osobną kopią instancji. Kopia pojedynczej bazy obejmuje dane tej bazy.
+- **Save backup** writes an archive to your computer and checks that its list of objects is readable. Restore the archive and open a Resolve project for a complete check.
+- **Restore a backup** creates a new database on the connected server. You can use a different instance from the source. The PostgreSQL account needs `CREATEDB`. Extensions and other objects may need additional permissions.
+- After restoring a library, register it on the destination instance to assign users. A single database backup covers its database contents. Back up PostgreSQL roles and the account registry separately.
 
-## Budowanie
+## Build from source
 
-Projekt używa .NET 10 i Avalonia. Przykład kompilacji samodzielnej wersji dla Windows x64:
+The application uses .NET 10 and Avalonia. To publish a self-contained Windows x64 build:
 
 ```sh
 dotnet publish ProjectLibraryDesk.csproj -c Release -r win-x64 --self-contained true
 ```
 
-Identyfikatory pozostałych wersji to `linux-x64`, `osx-arm64` i `osx-x64`. Przed publiczną dystrybucją zweryfikuj pakiet na systemie docelowym i podpisz odpowiednie wydania.
+Other runtime identifiers are `linux-x64`, `osx-arm64`, and `osx-x64`. Test packages on the target system before distributing them.
 
-### Budowanie instalatorów
+### Build installers
 
-Instalatory korzystają z gotowych paczek przenośnych tego samego wydania. Na Windows podaj ścieżkę do kompilatora [NSIS](https://nsis.sourceforge.io/Download). Na Debianie lub Ubuntu użyj `dpkg-deb`.
+The installer scripts use portable packages from the same release. Windows needs the [NSIS compiler](https://nsis.sourceforge.io/Download). Debian and Ubuntu use `dpkg-deb`.
 
 ```sh
-python packaging/windows/build.py Windows-x64.zip Windows-x64-Setup.exe --makensis /ścieżka/do/makensis.exe
+python packaging/windows/build.py Windows-x64.zip Windows-x64-Setup.exe --makensis /path/to/makensis.exe
 bash packaging/linux/build-deb.sh Linux-x64.tar.gz Linux-amd64.deb
 ```
 
-## Licencja i źródła pakietów
+## License and package sources
 
-Kod projektu jest dostępny na licencji [MIT](LICENSE). Zestawy PostgreSQL są pobierane na żądanie z [theseus-rs/postgresql-binaries](https://github.com/theseus-rs/postgresql-binaries/releases). Możesz też wskazać lokalną instalację, np. [narzędzia wydane przez EDB](https://www.enterprisedb.com/download-postgresql-binaries). [Katalog pakietów](PgToolPackages.json) zawiera przypięte adresy i sumy SHA-256. Przy aktualizacji katalogu porównaj sumy z metadanymi wydawcy. Licencje i źródła zależności są opisane w [informacjach o komponentach zewnętrznych](THIRD-PARTY-NOTICES.md).
+The app is independent of Blackmagic Design and available under the [MIT license](LICENSE). It downloads PostgreSQL client tools from [theseus-rs/postgresql-binaries](https://github.com/theseus-rs/postgresql-binaries/releases). A local installation, such as the [EDB binaries](https://www.enterprisedb.com/download-postgresql-binaries), also works when the required tools are available. The [package catalog](PgToolPackages.json) records pinned URLs and SHA-256 checksums. See [third-party notices](THIRD-PARTY-NOTICES.md) for dependency sources and licenses.

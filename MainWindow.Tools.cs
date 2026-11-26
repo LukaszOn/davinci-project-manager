@@ -1,3 +1,4 @@
+using static ProjectLibraryDesk.UiText;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
@@ -23,30 +24,30 @@ public partial class MainWindow
         if (!connected || _identity is not { } identity) return;
 
         int major = identity.Major;
-        ClientToolsTitle.Text = $"Narzędzia PostgreSQL {major}";
+        ClientToolsTitle.Text = T("PostgreSQLTools", major);
         bool missing = _clientToolsFolder is null;
         ClientToolsDownload.IsVisible = missing;
         CheckClientTools.IsVisible = missing;
         if (!missing)
         {
-            ClientToolsMessage.Text = "Gotowe do tworzenia kopii i obsługi modułu kont.";
+            ClientToolsMessage.Text = T("ReadyForBackupsAndAccountManagement");
             ToolTip.SetTip(ClientToolsMessage, _clientToolsFolder);
             return;
         }
 
         ToolTip.SetTip(ClientToolsMessage, null);
-        BackupsToolsMessage.Text = $"Kopie dla tego serwera wymagają narzędzi PostgreSQL {major}.";
+        BackupsToolsMessage.Text = T("BackupsOnThisServerRequirePostgreSQL", major);
         var package = PgToolDownloads.ForCurrentPlatform(major);
-        ClientToolsDownload.Content = package is null ? "Instrukcja" : "Pobierz narzędzia";
+        ClientToolsDownload.Content = package is null ? T("Instructions") : T("DownloadTools");
         ClientToolsMessage.Text = package is null ? ClientToolsGuide(major).Message
-            : $"Brakuje zestawu. Pobierz paczkę od {package.Provider} albo wskaż folder w opcjach połączenia.";
+            : T("TheToolsAreMissingDownloadThem", package.Provider);
     }
 
     private async void RecheckClientTools(object? sender, RoutedEventArgs e) =>
-        await RunAsync("Sprawdzanie narzędzi PostgreSQL…", async () =>
+        await RunAsync(T("CheckingPostgreSQLTools"), async () =>
         {
             await RefreshClientToolsAsync();
-            return _clientToolsFolder is null ? "Wciąż brakuje odpowiednich narzędzi." : "Wykryto narzędzia PostgreSQL.";
+            return _clientToolsFolder is null ? T("TheRequiredToolsAreStillMissing") : T("PostgreSQLToolsDetected");
         });
 
     private void OpenClientTools(object? sender, RoutedEventArgs e) => ShowClientTools();
@@ -70,7 +71,7 @@ public partial class MainWindow
             try
             {
                 if (!await Launcher.LaunchUriAsync(new Uri(ClientToolsGuide(major).Url)))
-                    AddJournal("Nie udało się otworzyć instrukcji. Zajrzyj do sekcji kopii zapasowych w README.");
+                    AddJournal(T("CouldNotOpenTheInstructionsSee"));
             }
             catch (Exception error) { Report(error); }
             return;
@@ -81,7 +82,7 @@ public partial class MainWindow
         CancelToolsDownload.IsVisible = true;
         try
         {
-            await RunAsync($"Pobieranie narzędzi PostgreSQL {major}…", async () =>
+            await RunAsync(T("DownloadingPostgreSQLTools", major), async () =>
             {
                 var progress = new Progress<string>(message =>
                 {
@@ -90,11 +91,11 @@ public partial class MainWindow
                 try
                 {
                     _clientToolsFolder = await new PgToolDownloads().DownloadAsync(package, progress, cancellation.Token);
-                    return $"Narzędzia PostgreSQL {major} są gotowe.";
+                    return T("PostgreSQLToolsAreReady", major);
                 }
                 catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
                 {
-                    return "Anulowano pobieranie narzędzi.";
+                    return T("ToolDownloadCanceled");
                 }
             });
         }
@@ -109,17 +110,17 @@ public partial class MainWindow
 
     private static (string Message, string Url) ClientToolsGuide(int major)
     {
-        if (OperatingSystem.IsWindows()) return ("Wskaż folder bin z narzędziami tej wersji.", "https://www.postgresql.org/download/windows/");
-        if (OperatingSystem.IsMacOS()) return ("Wskaż folder bin z narzędziami tej wersji.", "https://www.postgresql.org/download/macosx/");
-        if (!OperatingSystem.IsLinux()) return ("Wskaż folder z narzędziami w opcjach połączenia.", "https://www.postgresql.org/download/");
+        if (OperatingSystem.IsWindows()) return (T("SelectTheBinFolderForTools"), "https://www.postgresql.org/download/windows/");
+        if (OperatingSystem.IsMacOS()) return (T("SelectTheBinFolderForTools"), "https://www.postgresql.org/download/macosx/");
+        if (!OperatingSystem.IsLinux()) return (T("SelectTheToolsFolderInConnection"), "https://www.postgresql.org/download/");
 
         if (LinuxDistribution.Value.Contains("ubuntu", StringComparer.OrdinalIgnoreCase))
-            return ($"Zainstaluj pakiet postgresql-client-{major} z repozytorium swojej dystrybucji lub wskaż folder bin.", "https://www.postgresql.org/download/linux/ubuntu/");
+            return (T("InstallPostgresqlClientFromYourDistribution", major), "https://www.postgresql.org/download/linux/ubuntu/");
         if (LinuxDistribution.Value.Contains("debian", StringComparer.OrdinalIgnoreCase))
-            return ($"Zainstaluj pakiet postgresql-client-{major} z repozytorium swojej dystrybucji lub wskaż folder bin.", "https://www.postgresql.org/download/linux/debian/");
+            return (T("InstallPostgresqlClientFromYourDistribution", major), "https://www.postgresql.org/download/linux/debian/");
         if (LinuxDistribution.Value.Any(id => id is "rhel" or "fedora" or "almalinux" or "rocky"))
-            return ("Użyj pakietu klienckiego z repozytorium swojej dystrybucji lub wskaż folder bin.", "https://www.postgresql.org/download/linux/redhat/");
-        return ("Użyj pakietu klienckiego z repozytorium swojej dystrybucji lub wskaż folder bin.", "https://www.postgresql.org/download/linux/");
+            return (T("InstallTheClientPackageFromYour"), "https://www.postgresql.org/download/linux/redhat/");
+        return (T("InstallTheClientPackageFromYour"), "https://www.postgresql.org/download/linux/");
     }
 
     private static readonly Lazy<string[]> LinuxDistribution = new(() =>
