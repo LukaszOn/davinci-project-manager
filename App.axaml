@@ -1,0 +1,224 @@
+<Application x:Class="ProjectLibraryDesk.App" xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" RequestedThemeVariant="Light">
+  <Application.Resources>
+    <SolidColorBrush x:Key="Ink" Color="#172137" />
+    <SolidColorBrush x:Key="Slate" Color="#4F627D" />
+    <SolidColorBrush x:Key="Blue" Color="#3C4895" />
+    <SolidColorBrush x:Key="Line" Color="#D8DFED" />
+    <SolidColorBrush x:Key="Connected" Color="#176041" />
+    <SolidColorBrush x:Key="Disconnected" Color="#9D232D" />
+    <SolidColorBrush x:Key="Connecting" Color="#79530D" />
+  </Application.Resources>
+  <Application.Styles>
+    <FluentTheme />
+    <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml" />
+    <Style Selector="Button">
+      <Setter Property="Padding" Value="10,5" />
+      <Setter Property="MinHeight" Value="32" />
+      <Setter Property="Margin" Value="0,0,7,5" />
+      <Setter Property="Background" Value="#FFFFFF" />
+      <Setter Property="BorderBrush" Value="{StaticResource Line}" />
+      <Setter Property="Foreground" Value="{StaticResource Ink}" />
+      <Setter Property="CornerRadius" Value="6" />
+    </Style>
+    <Style Selector="Button.primary">
+      <Setter Property="Background" Value="{StaticResource Blue}" />
+      <Setter Property="Foreground" Value="White" />
+      <Setter Property="BorderBrush" Value="{StaticResource Blue}" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="Button.primary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#303C86" />
+      <Setter Property="Foreground" Value="White" />
+    </Style>
+    <Style Selector="Button.danger">
+      <Setter Property="Background" Value="#FFF0F1" />
+      <Setter Property="BorderBrush" Value="#F8E4E7" />
+      <Setter Property="Foreground" Value="#9D232D" />
+    </Style>
+    <Style Selector="Button.nav, Button.nav-icon">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="Foreground" Value="#E3ECFA" />
+      <Setter Property="Margin" Value="0" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Left" />
+    </Style>
+    <Style Selector="Button.nav.selected">
+      <Setter Property="Background" Value="#2B354B" />
+      <Setter Property="BorderBrush" Value="#FFD480" />
+      <Setter Property="BorderThickness" Value="2,0,0,0" />
+      <Setter Property="Foreground" Value="White" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="Button.nav:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.nav-icon:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#313D55" />
+      <Setter Property="Foreground" Value="White" />
+    </Style>
+    <Style Selector="ListBox.libraries">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Foreground" Value="#E0E9F8" />
+    </Style>
+    <Style Selector="ListBox.libraries ListBoxItem">
+      <Setter Property="Padding" Value="8,7" />
+    </Style>
+    <Style Selector="ListBox.libraries ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter, ListBox.libraries ListBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#2B354B" />
+      <Setter Property="Foreground" Value="White" />
+    </Style>
+    <Style Selector="Border.card">
+      <Setter Property="Background" Value="White" />
+      <Setter Property="BorderBrush" Value="{StaticResource Line}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="11" />
+    </Style>
+    <Style Selector="TextBlock.page-title">
+      <Setter Property="FontSize" Value="34" />
+      <Setter Property="FontWeight" Value="ExtraBold" />
+    </Style>
+    <Style Selector="TextBlock.form-title">
+      <Setter Property="FontSize" Value="18" />
+      <Setter Property="FontWeight" Value="Bold" />
+    </Style>
+    <Style Selector="TextBlock.form-label">
+      <Setter Property="FontSize" Value="13" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="TextBlock.form-help">
+      <Setter Property="Foreground" Value="{StaticResource Slate}" />
+      <Setter Property="FontSize" Value="13" />
+    </Style>
+    <Style Selector="TextBox.form-field, ComboBox.form-field">
+      <Setter Property="MinHeight" Value="38" />
+      <Setter Property="FontSize" Value="14" />
+      <Setter Property="Padding" Value="10,6" />
+      <Setter Property="CornerRadius" Value="6" />
+    </Style>
+    <Style Selector="Button.form-action">
+      <Setter Property="Margin" Value="0" />
+      <Setter Property="MinHeight" Value="36" />
+      <Setter Property="Padding" Value="12,6" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Border.connection-badge">
+      <Setter Property="Padding" Value="9,5" />
+      <Setter Property="CornerRadius" Value="7" />
+    </Style>
+    <Style Selector="Border.connection-badge.online">
+      <Setter Property="Background" Value="#E4F4EA" />
+    </Style>
+    <Style Selector="Border.connection-badge.offline">
+      <Setter Property="Background" Value="#FBEAEC" />
+    </Style>
+    <Style Selector="Border.connection-badge.connecting">
+      <Setter Property="Background" Value="#FFF3D9" />
+    </Style>
+    <Style Selector="Border.connection-badge.online TextBlock">
+      <Setter Property="Foreground" Value="{StaticResource Connected}" />
+    </Style>
+    <Style Selector="Border.connection-badge.offline TextBlock">
+      <Setter Property="Foreground" Value="{StaticResource Disconnected}" />
+    </Style>
+    <Style Selector="Border.connection-badge.connecting TextBlock">
+      <Setter Property="Foreground" Value="{StaticResource Connecting}" />
+    </Style>
+    <Style Selector="Border.connection-badge.online Ellipse.connection-dot">
+      <Setter Property="Fill" Value="{StaticResource Connected}" />
+    </Style>
+    <Style Selector="Border.connection-badge.offline Ellipse.connection-dot">
+      <Setter Property="Fill" Value="{StaticResource Disconnected}" />
+    </Style>
+    <Style Selector="Border.connection-badge.connecting Ellipse.connection-dot">
+      <Setter Property="Fill" Value="{StaticResource Connecting}" />
+    </Style>
+    <Style Selector="ToggleButton.connection-options">
+      <Setter Property="Margin" Value="0" />
+      <Setter Property="Padding" Value="17,10" />
+      <Setter Property="MinHeight" Value="43" />
+      <Setter Property="CornerRadius" Value="0" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    </Style>
+    <Style Selector="ToggleButton.connection-options /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#F7F8FC" />
+      <Setter Property="Foreground" Value="{StaticResource Ink}" />
+    </Style>
+    <Style Selector="ToggleButton.connection-options:checked /template/ ContentPresenter#PART_ContentPresenter, ToggleButton.connection-options:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#EDF0FA" />
+      <Setter Property="Foreground" Value="{StaticResource Ink}" />
+    </Style>
+    <Style Selector="ToggleButton.connection-options:checked PathIcon">
+      <Setter Property="RenderTransform" Value="rotate(180deg)" />
+    </Style>
+    <Style Selector="Button.help">
+      <Setter Property="Margin" Value="0" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="MinHeight" Value="20" />
+      <Setter Property="Width" Value="20" />
+      <Setter Property="Height" Value="20" />
+      <Setter Property="CornerRadius" Value="10" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="Background" Value="#F1F4FA" />
+      <Setter Property="Foreground" Value="{StaticResource Slate}" />
+      <Setter Property="BorderBrush" Value="#B9C7DD" />
+    </Style>
+    <Style Selector="TextBlock.help-copy">
+      <Setter Property="MaxWidth" Value="276" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+    <Style Selector="Border.avatar">
+      <Setter Property="Background" Value="#E4E7FA" />
+      <Setter Property="CornerRadius" Value="7" />
+    </Style>
+    <Style Selector="Border.avatar TextBlock">
+      <Setter Property="Foreground" Value="#384779" />
+    </Style>
+    <Style Selector="Border.badge">
+      <Setter Property="Background" Value="#EEF1F6" />
+      <Setter Property="CornerRadius" Value="8" />
+    </Style>
+    <Style Selector="Border.badge.active">
+      <Setter Property="Background" Value="#E5F5EC" />
+    </Style>
+    <Style Selector="Border.badge.active TextBlock">
+      <Setter Property="Foreground" Value="#176041" />
+    </Style>
+    <Style Selector="TextBox">
+      <Setter Property="Padding" Value="6,4" />
+      <Setter Property="MinHeight" Value="30" />
+      <Setter Property="BorderBrush" Value="{StaticResource Line}" />
+    </Style>
+    <Style Selector="ComboBox">
+      <Setter Property="Padding" Value="6,4" />
+      <Setter Property="MinHeight" Value="30" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+    </Style>
+    <Style Selector="DataGrid">
+      <Setter Property="AutoGenerateColumns" Value="False" />
+      <Setter Property="IsReadOnly" Value="True" />
+      <Setter Property="SelectionMode" Value="Single" />
+      <Setter Property="HeadersVisibility" Value="Column" />
+      <Setter Property="RowHeight" Value="30" />
+      <Setter Property="GridLinesVisibility" Value="Horizontal" />
+      <Setter Property="HorizontalGridLinesBrush" Value="#E6EDF5" />
+      <Setter Property="BorderBrush" Value="{StaticResource Line}" />
+      <Setter Property="Background" Value="White" />
+    </Style>
+    <Style Selector="DataGrid.member-grid">
+      <Setter Property="BorderThickness" Value="0,1,0,0" />
+      <Setter Property="RowHeight" Value="53" />
+      <Setter Property="ColumnHeaderHeight" Value="31" />
+    </Style>
+    <Style Selector="DataGrid.member-grid DataGridColumnHeader">
+      <Setter Property="Background" Value="#F4F6FA" />
+      <Setter Property="Foreground" Value="#405475" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="FontSize" Value="11" />
+    </Style>
+  </Application.Styles>
+</Application>

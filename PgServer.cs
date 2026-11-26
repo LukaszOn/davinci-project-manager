@@ -1,0 +1,335 @@
+using System.Globalization;
+using System.IO;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
+using System.Text.RegularExpressions;
+using Npgsql;
+using NpgsqlTypes;
+using Org.BouncyCastle.Crypto.Generators;
+
+namespace ProjectLibraryDesk;
+
+public sealed record ServerProfile(Guid Id, string Name, string Host, int Port, string User,
+    string MaintenanceDb, SslMode SslMode, string? RootCertificate, string? ToolsDirectory);
+
+public sealed record PgLibrary(string Name, string Owner);
+
+public sealed record PgIdentity(string Username, int Version, bool CanCreateDatabase, bool IsSuperuser)
+{
+    public int Major => Version / 10_000;
+    public string DisplayVersion => $"{Major}.{Version % 10_000}";
+}
+
+public sealed record Member(string Login, string Name, string Role, bool Enabled, string[] Libraries)
+{
+    public string RoleLabel => Role == "administrator" ? "Administrator panelu" : "Współpracownik";
+    public string State => Enabled ? "Aktywne" : "Zablokowane";
+    public string LibraryList => string.Join(", ", Libraries);
+    public int LibraryCount => Libraries.Length;
+    public string Initials => string.Concat(Name.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+        .Take(2).Select(word => StringInfo.GetNextTextElement(word))).ToUpperInvariant();
+}
+
+public sealed record DirectoryState(bool Available, bool Registered, string Message, IReadOnlyList<Member> Members);
+
+public sealed class ProfileStore(string file)
+{
+    public static ProfileStore ForCurrentUser() => new(Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "ProjectLibraryDesk", "profiles.json"));
+
+    public List<ServerProfile> Load() => File.Exists(file)
+        ? JsonSerializer.Deserialize<List<ServerProfile>>(File.ReadAllText(file)) ?? [] : [];
+
+    public void Save(List<ServerProfile> profiles)
+    {
+        string directory = Path.GetDirectoryName(file)!;
+        System.IO.Directory.CreateDirectory(directory);
+        string temporary = Path.Combine(directory, $"profiles-{Guid.NewGuid():N}.tmp");
+        try
+        {
+            File.WriteAllText(temporary, JsonSerializer.Serialize(profiles, new JsonSerializerOptions { WriteIndented = true }));
+            File.Move(temporary, file, overwrite: true);
+        }
+        finally
+        {
+            File.Delete(temporary);
+        }
+    }
+}
+
+public sealed class PgServer(ServerProfile profile, string password)
+{
+    public ServerProfile Profile { get; } = profile;
+    internal string Password { get; } = password;
+
+    private NpgsqlConnection Connection(string? database = null) => new(new NpgsqlConnectionStringBuilder
+    {
+        Host = Profile.Host, Port = Profile.Port, Username = Profile.User, Password = Password,
+        Database = database ?? Profile.MaintenanceDb, SslMode = Profile.SslMode,
+        RootCertificate = Profile.RootCertificate, ApplicationName = "DaVinci Project Manager",
+        Timeout = 8, CommandTimeout = 12, Pooling = false,
+    }.ConnectionString);
+
+    public async Task PingAsync()
+    {
+        await using var connection = Connection();
+        await connection.OpenAsync();
+    }
+
+    public async Task<(PgIdentity Identity, IReadOnlyList<PgLibrary> Libraries)> ConnectAsync()
+    {
+        await using var connection = Connection();
+        await connection.OpenAsync();
+        var identity = await IdentifyAsync(connection);
+        var libraries = new List<PgLibrary>();
+        await using var command = new NpgsqlCommand("""
+            SELECT datname, pg_get_userbyid(datdba) FROM pg_database
+            WHERE datallowconn AND NOT datistemplate AND has_database_privilege(oid, 'CONNECT')
+            ORDER BY datname
+            """, connection);
+        await using var rows = await command.ExecuteReaderAsync();
+        while (await rows.ReadAsync())
+            libraries.Add(new(rows.GetString(0), rows.GetString(1)));
+        return (identity, libraries);
+    }
+
+    public async Task<PgIdentity> IdentifyAsync(string database)
+    {
+        await using var connection = Connection(database);
+        await connection.OpenAsync();
+        return await IdentifyAsync(connection);
+    }
+
+    private static async Task<PgIdentity> IdentifyAsync(NpgsqlConnection connection)
+    {
+        await using var command = new NpgsqlCommand("""
+            SELECT current_user, current_setting('server_version_num')::int,
+                rolsuper OR rolcreatedb, rolsuper FROM pg_roles WHERE rolname = current_user
+            """, connection);
+        await using var row = await command.ExecuteReaderAsync();
+        if (!await row.ReadAsync())
+            throw new InvalidOperationException("Nie udało się odczytać tożsamości konta PostgreSQL.");
+        return new(row.GetString(0), row.GetInt32(1), row.GetBoolean(2), row.GetBoolean(3));
+    }
+
+    public async Task<DirectoryState> ReadDirectoryAsync(string database)
+    {
+        await using var connection = Connection();
+        await connection.OpenAsync();
+        await using var inspection = new NpgsqlCommand("""
+            SELECT to_regclass('resolve_access.directory') IS NOT NULL
+               AND to_regprocedure('resolve_access.change_member(text,text,text,text,text,text,text,bytea,boolean)') IS NOT NULL
+            """, connection);
+        try
+        {
+            if (await inspection.ExecuteScalarAsync() is not true)
+                return new(false, false, "Aby zarządzać kontami, zainstaluj moduł SQL na tym serwerze.", []);
+
+            await using var registered = new NpgsqlCommand("SELECT EXISTS (SELECT FROM resolve_access.available_libraries WHERE name = @library)", connection);
+            registered.Parameters.AddWithValue("library", database);
+            if (await registered.ExecuteScalarAsync() is not true)
+                return new(true, false, "Zarejestruj tę bibliotekę w module dostępu, aby zarządzać jej użytkownikami.", []);
+
+            await using var command = new NpgsqlCommand("""
+                SELECT username::text, label, account_role, enabled, libraries::text[]
+                FROM resolve_access.directory ORDER BY lower(label), username
+                """, connection);
+            var members = new List<Member>();
+            await using var rows = await command.ExecuteReaderAsync();
+            while (await rows.ReadAsync())
+                members.Add(new(rows.GetString(0), rows.GetString(1), rows.GetString(2), rows.GetBoolean(3), rows.GetFieldValue<string[]>(4)));
+            return new(true, true, "Konta zarządzane na tym serwerze. Przypisania zmieniasz dla wybranej biblioteki.", members);
+        }
+        catch (PostgresException error) when (error.SqlState == PostgresErrorCodes.InsufficientPrivilege)
+        {
+            return new(false, false, "Wybrane konto PostgreSQL nie ma dostępu do modułu użytkowników.", []);
+        }
+    }
+
+    public async Task SaveMemberAsync(string library, string operation, string login, string nextLogin,
+        string label, string role, string? newPassword, bool grantAccess = false)
+    {
+        if (operation is not ("create" or "edit" or "password"))
+            throw new ArgumentOutOfRangeException(nameof(operation));
+        if (operation is "create" or "edit")
+        {
+            ValidateLogin(nextLogin);
+            if (label.Trim().Length is < 1 or > 80 || role is not ("collaborator" or "administrator"))
+                throw new InvalidOperationException("Sprawdź nazwę osoby i rolę.");
+        }
+        CredentialHashes? hashes = null;
+        if (operation is "create" or "password")
+        {
+            if (newPassword is null || newPassword.Length is < 8 or > 128 || newPassword.Contains('\0'))
+                throw new InvalidOperationException("Hasło musi mieć od 8 do 128 znaków.");
+            hashes = await Task.Run(() => CredentialHashes.Create(newPassword));
+        }
+
+        await using var connection = Connection();
+        await connection.OpenAsync();
+        await using var transaction = await connection.BeginTransactionAsync();
+        await using var command = new NpgsqlCommand("""
+            SELECT resolve_access.change_member(@operation, @login, @next, @label, @role, @scram, @web, NULL, false)
+            """, connection, transaction);
+        command.Parameters.AddWithValue("operation", operation);
+        command.Parameters.AddWithValue("login", login);
+        command.Parameters.AddWithValue("next", nextLogin);
+        command.Parameters.AddWithValue("label", label.Trim());
+        command.Parameters.AddWithValue("role", role);
+        command.Parameters.AddWithValue("scram", NpgsqlDbType.Text, (object?)hashes?.Scram ?? DBNull.Value);
+        command.Parameters.AddWithValue("web", NpgsqlDbType.Text, (object?)hashes?.Web ?? DBNull.Value);
+        await command.ExecuteNonQueryAsync();
+        if (operation == "create" && grantAccess)
+            await ApplyAsync(connection, transaction, "grant", nextLogin, library);
+        await transaction.CommitAsync();
+    }
+
+    public async Task ChangeAccessAsync(string operation, string login, string library)
+    {
+        if (operation is not ("grant" or "revoke" or "enable" or "disable"))
+            throw new ArgumentOutOfRangeException(nameof(operation));
+        await using var connection = Connection();
+        await connection.OpenAsync();
+        await ApplyAsync(connection, null, operation, login, library);
+        if (operation is "revoke" or "disable")
+        {
+            await using var endSessions = new NpgsqlCommand("SELECT resolve_access.close_revoked_sessions(@login)", connection);
+            endSessions.Parameters.AddWithValue("login", login);
+            try { await endSessions.ExecuteNonQueryAsync(); }
+            catch (NpgsqlException error)
+            {
+                throw new InvalidOperationException("Dostęp zmieniono. Nie potwierdzono zakończenia otwartych sesji.", error);
+            }
+        }
+    }
+
+    public async Task DeleteMemberAsync(string login)
+    {
+        ValidateLogin(login);
+        await using var connection = Connection();
+        await connection.OpenAsync();
+        await using var command = new NpgsqlCommand("""
+            SELECT resolve_access.change_member('delete', @login, NULL, NULL, NULL, NULL, NULL, NULL, false)
+            """, connection);
+        command.Parameters.AddWithValue("login", login);
+        await command.ExecuteNonQueryAsync();
+    }
+
+    private static async Task ApplyAsync(NpgsqlConnection connection, NpgsqlTransaction? transaction,
+        string operation, string login, string library)
+    {
+        await using var command = new NpgsqlCommand("SELECT resolve_access.apply_change(@operation, @login, NULL, NULL, @library)", connection, transaction);
+        command.Parameters.AddWithValue("operation", operation);
+        command.Parameters.AddWithValue("login", login);
+        command.Parameters.AddWithValue("library", library);
+        await command.ExecuteNonQueryAsync();
+    }
+
+    public async Task CreateRestoreDatabaseAsync(string target)
+    {
+        if (!Regex.IsMatch(target, @"\A[a-z][a-z0-9_]{1,62}\z", RegexOptions.CultureInvariant))
+            throw new InvalidOperationException("Nazwa nowej bazy musi mieć 2–63 znaki. Użyj małych liter, cyfr i podkreśleń.");
+        await using var connection = Connection();
+        await connection.OpenAsync();
+        if (!(await IdentifyAsync(connection)).CanCreateDatabase)
+            throw new InvalidOperationException("Do utworzenia bazy potrzebne jest konto PostgreSQL z uprawnieniem CREATEDB.");
+        await using var command = new NpgsqlCommand($"CREATE DATABASE \"{target}\" TEMPLATE template0", connection);
+        try { await command.ExecuteNonQueryAsync(); }
+        catch (PostgresException error) when (error.SqlState == PostgresErrorCodes.DuplicateDatabase)
+        {
+            throw new InvalidOperationException("Baza o tej nazwie już istnieje. Wybierz inną nazwę.", error);
+        }
+    }
+
+    public static string LibraryAccessRole(string database)
+    {
+        if (!Regex.IsMatch(database, @"\A[A-Za-z0-9_]{1,63}\z", RegexOptions.CultureInvariant))
+            throw new InvalidOperationException("Kreator obsługuje nazwy baz złożone z liter ASCII, cyfr i podkreśleń.");
+        // Matches resolve_access.register and the PostgreSQL role installed in the library.
+        return "resolve_lib_" + Convert.ToHexStringLower(MD5.HashData(Encoding.UTF8.GetBytes(database)));
+    }
+
+    public async Task RequireLibraryHbaAsync(string database)
+    {
+        string group = "+" + LibraryAccessRole(database);
+        await using var connection = Connection();
+        await connection.OpenAsync();
+        PgIdentity identity = await IdentifyAsync(connection);
+        if (!identity.IsSuperuser)
+            throw new InvalidOperationException("Pierwszą konfigurację modułu wykonuje superużytkownik PostgreSQL.");
+        if (identity.Major < 13)
+            throw new InvalidOperationException("Kreator obsługuje PostgreSQL 13 lub nowszy.");
+        if (!string.Equals(Profile.MaintenanceDb, "postgres", StringComparison.Ordinal))
+            throw new InvalidOperationException("W profilu ustaw bazę połączenia na postgres przed instalacją modułu.");
+        if (database == Profile.MaintenanceDb)
+            throw new InvalidOperationException("Wybierz bibliotekę projektów przed instalacją modułu.");
+
+        await using var loaded = new NpgsqlCommand("SELECT (pg_stat_file(current_setting('hba_file'))).modification <= pg_conf_load_time()", connection);
+        if (await loaded.ExecuteScalarAsync() is not true)
+            throw new InvalidOperationException("Przeładuj konfigurację PostgreSQL po zapisaniu pg_hba.conf, a następnie spróbuj ponownie.");
+
+        string order = identity.Major >= 16 ? "rule_number" : "line_number";
+        await using var command = new NpgsqlCommand($"SELECT type, database, user_name, auth_method, address, error FROM pg_hba_file_rules ORDER BY {order}", connection);
+        await using var rows = await command.ExecuteReaderAsync();
+        var local = new List<HbaRule>();
+        var tcp = new List<HbaRule>();
+        while (await rows.ReadAsync())
+        {
+            if (!rows.IsDBNull(5)) throw new InvalidOperationException("Plik pg_hba.conf zawiera błąd składni.");
+            var rule = new HbaRule(rows.GetString(0), rows.GetFieldValue<string[]>(1), rows.GetFieldValue<string[]>(2), rows.GetString(3),
+                rows.IsDBNull(4) ? null : rows.GetString(4));
+            (rule.Type == "local" ? local : tcp).Add(rule);
+        }
+        if (!ValidHba(local, database, group, "local") || !ValidHba(tcp, database, group, "host"))
+            throw new InvalidOperationException("Najpierw dodaj reguły dostępu biblioteki i blokadę pozostałych baz, zgodnie z kreatorem.");
+    }
+
+    private static bool ValidHba(List<HbaRule> rules, string database, string group, string generalType)
+    {
+        int allowed = rules.FindIndex(rule => rule.Databases.SequenceEqual([database]) && rule.Users.SequenceEqual([group])
+            && rule.Method == "scram-sha-256" && (rule.Type == generalType || rule.Type == "hostssl"));
+        int restricted = rules.FindIndex(rule => rule.Type == generalType && rule.Method == "reject" && (generalType == "local" || rule.Address == "all")
+            && rule.Databases.SequenceEqual(["all"]) && rule.Users.Contains("+resolve_panel_members"));
+        int open = rules.FindIndex(rule => rule.Users.Contains("all"));
+        return allowed >= 0 && restricted > allowed && (open < 0 || restricted < open);
+    }
+
+    private sealed record HbaRule(string Type, string[] Databases, string[] Users, string Method, string? Address);
+
+    private static void ValidateLogin(string login)
+    {
+        if (!Regex.IsMatch(login, @"\A[a-z][a-z0-9_]{1,30}\z", RegexOptions.CultureInvariant) ||
+            login == "postgres" || login.StartsWith("pg_", StringComparison.Ordinal) ||
+            login.StartsWith("resolve_panel_", StringComparison.Ordinal) || login.StartsWith("resolve_lib_", StringComparison.Ordinal))
+            throw new InvalidOperationException("Wpisz login od 2 do 31 znaków. Zacznij małą literą.");
+    }
+}
+
+internal sealed record CredentialHashes(string Scram, string Web)
+{
+    public static CredentialHashes Create(string password)
+    {
+        byte[] raw = Encoding.UTF8.GetBytes(password);
+        byte[] normalized = Encoding.UTF8.GetBytes(password.Normalize(NormalizationForm.FormKC));
+        byte[] scramSalt = RandomNumberGenerator.GetBytes(16);
+        byte[] salted = Rfc2898DeriveBytes.Pbkdf2(normalized, scramSalt, 4096, HashAlgorithmName.SHA256, 32);
+        try
+        {
+            byte[] stored = SHA256.HashData(HMACSHA256.HashData(salted, "Client Key"u8));
+            byte[] server = HMACSHA256.HashData(salted, "Server Key"u8);
+            string scram = $"SCRAM-SHA-256$4096:{Convert.ToBase64String(scramSalt)}${Convert.ToBase64String(stored)}:{Convert.ToBase64String(server)}";
+            const string alphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+            string webSalt = RandomNumberGenerator.GetString(alphabet, 16);
+            byte[] webHash = SCrypt.Generate(raw, Encoding.UTF8.GetBytes(webSalt), 32768, 8, 1, 64);
+            return new(scram, $"scrypt:32768:8:1${webSalt}${Convert.ToHexStringLower(webHash)}");
+        }
+        finally
+        {
+            CryptographicOperations.ZeroMemory(raw);
+            CryptographicOperations.ZeroMemory(normalized);
+            CryptographicOperations.ZeroMemory(salted);
+        }
+    }
+}

@@ -1,0 +1,146 @@
+[
+  {
+    "Major": 14,
+    "Platform": "win-x64",
+    "Version": "14.25.0",
+    "Provider": "theseus-rs",
+    "Url": "https://github.com/theseus-rs/postgresql-binaries/releases/download/14.25.0/postgresql-14.25.0-x86_64-pc-windows-msvc.tar.gz",
+    "Sha256": "5545e016cc4d88d56595434bd54c1b3492c3cd12231ac0caa50cdf7548481859"
+  },
+  {
+    "Major": 15,
+    "Platform": "win-x64",
+    "Version": "15.20.0",
+    "Provider": "theseus-rs",
+    "Url": "https://github.com/theseus-rs/postgresql-binaries/releases/download/15.20.0/postgresql-15.20.0-x86_64-pc-windows-msvc.tar.gz",
+    "Sha256": "a5f192b45d51d4ff59f33ca1549e6a7e0b8c2727c5e87f01163755c572459c19"
+  },
+  {
+    "Major": 16,
+    "Platform": "win-x64",
+    "Version": "16.16.0",
+    "Provider": "theseus-rs",
+    "Url": "https://github.com/theseus-rs/postgresql-binaries/releases/download/16.16.0/postgresql-16.16.0-x86_64-pc-windows-msvc.tar.gz",
+    "Sha256": "4557b8251bb967c1c09eab57439fb2f1179d35c70debfc692fe637bb08d2f20c"
+  },
+  {
+    "Major": 17,
+    "Platform": "win-x64",
+    "Version": "17.12.0",
+    "Provider": "theseus-rs",
+    "Url": "https://github.com/theseus-rs/postgresql-binaries/releases/download/17.12.0/postgresql-17.12.0-x86_64-pc-windows-msvc.tar.gz",
+    "Sha256": "11c843939c303aceb70ad79d4c3c27da4b7dec2ffb2d5022ec8edd501517b21b"
+  },
+  {
+    "Major": 18,
+    "Platform": "win-x64",
+    "Version": "18.7.0",
+    "Provider": "theseus-rs",
+    "Url": "https://github.com/theseus-rs/postgresql-binaries/releases/download/18.7.0/postgresql-18.7.0-x86_64-pc-windows-msvc.tar.gz",
+    "Sha256": "6e054adb854dbed1f78f9933a1c65737d85a47d2446ce0e9b5f055fb3794fe5c"
+  },
+  {
+    "Major": 19,
+    "Platform": "win-x64",
+    "Version": "19.0.0",
+    "Provider": "theseus-rs",
+    "Url": "https://github.com/theseus-rs/postgresql-binaries/releases/download/19.0.0/postgresql-19.0.0-x86_64-pc-windows-msvc.tar.gz",
+    "Sha256": "2cf7918634790e9443ef4edb5ea47006e2fcbaa659e88e74c0dae63cdcf9d19b"
+  },
+  {
+    "Major": 14,
+    "Platform": "osx-arm64",
+    "Version": "14.25.0",
+    "Provider": "theseus-rs",
+    "Url": "https://github.com/theseus-rs/postgresql-binaries/releases/download/14.25.0/postgresql-14.25.0-aarch64-apple-darwin.tar.gz",
+    "Sha256": "35e191e6a20a86f9eb2a1b9d091ba0b6b5cad51fcbf5627080055194b1418871"
+  },
+  {
+    "Major": 14,
+    "Platform": "osx-x64",
+    "Version": "14.25.0",
+    "Provider": "theseus-rs",
+    "Url": "https://github.com/theseus-rs/postgresql-binaries/releases/download/14.25.0/postgresql-14.25.0-x86_64-apple-darwin.tar.gz",
+    "Sha256": "ddb521888f8a3868d4ec48b23d07f936acec1a7109d891ef10ed9b19a8742116"
+  },
+  {
+    "Major": 15,
+    "Platform": "osx-arm64",
+    "Version": "15.20.0",
+    "Provider": "theseus-rs",
+    "Url": "https://github.com/theseus-rs/postgresql-binaries/releases/download/15.20.0/postgresql-15.20.0-aarch64-apple-darwin.tar.gz",
+    "Sha256": "b4f28bbbcb5f195df3f84b5ad9ab8ee60d0fab44e60fdf4b1036f0c7e1451a79"
+  },
+  {
+    "Major": 15,
+    "Platform": "osx-x64",
+    "Version": "15.20.0",
+    "Provider": "theseus-rs",
+    "Url": "https://github.com/theseus-rs/postgresql-binaries/releases/download/15.20.0/postgresql-15.20.0-x86_64-apple-darwin.tar.gz",
+    "Sha256": "271f3cd94dedd576a6c4a48bb8da02382cffcca3f8112984facf79596aaaf68a"
+  },
+  {
+    "Major": 16,
+    "Platform": "osx-arm64",
+    "Version": "16.16.0",
+    "Provider": "theseus-rs",
+    "Url": "https://github.com/theseus-rs/postgresql-binaries/releases/download/16.16.0/postgresql-16.16.0-aarch64-apple-darwin.tar.gz",
+    "Sha256": "b7f002d554cd8a916d189e24b8f885d088b7909bb6d2de092f82c10274cb8251"
+  },
+  {
+    "Major": 16,
+    "Platform": "osx-x64",
+    "Version": "16.16.0",
+    "Provider": "theseus-rs",
+    "Url": "https://github.com/theseus-rs/postgresql-binaries/releases/download/16.16.0/postgresql-16.16.0-x86_64-apple-darwin.tar.gz",
+    "Sha256": "6bcc3f98c76fdb4b52bf4e59781308ea996058941566579a0961b3a25626b6bb"
+  },
+  {
+    "Major": 17,
+    "Platform": "osx-arm64",
+    "Version": "17.12.0",
+    "Provider": "theseus-rs",
+    "Url": "https://github.com/theseus-rs/postgresql-binaries/releases/download/17.12.0/postgresql-17.12.0-aarch64-apple-darwin.tar.gz",
+    "Sha256": "2f752033b208f9a6a12ef64a9ee23bf19149cff160841980db1e221bf7d24809"
+  },
+  {
+    "Major": 17,
+    "Platform": "osx-x64",
+    "Version": "17.12.0",
+    "Provider": "theseus-rs",
+    "Url": "https://github.com/theseus-rs/postgresql-binaries/releases/download/17.12.0/postgresql-17.12.0-x86_64-apple-darwin.tar.gz",
+    "Sha256": "34ba0eca0f15776b4ab9a07b2decc6fb0b1910a57870ad7d7dacb7399b43c9bd"
+  },
+  {
+    "Major": 18,
+    "Platform": "osx-arm64",
+    "Version": "18.7.0",
+    "Provider": "theseus-rs",
+    "Url": "https://github.com/theseus-rs/postgresql-binaries/releases/download/18.7.0/postgresql-18.7.0-aarch64-apple-darwin.tar.gz",
+    "Sha256": "86456c0ed99d2466524eaa074db6580cf7d748b91042e252c83eaca9a9d216e7"
+  },
+  {
+    "Major": 18,
+    "Platform": "osx-x64",
+    "Version": "18.7.0",
+    "Provider": "theseus-rs",
+    "Url": "https://github.com/theseus-rs/postgresql-binaries/releases/download/18.7.0/postgresql-18.7.0-x86_64-apple-darwin.tar.gz",
+    "Sha256": "9cd649259d6bf4af60a235e772c83853df215b63f4c1967c2eed7f9376aefb89"
+  },
+  {
+    "Major": 19,
+    "Platform": "osx-arm64",
+    "Version": "19.0.0",
+    "Provider": "theseus-rs",
+    "Url": "https://github.com/theseus-rs/postgresql-binaries/releases/download/19.0.0/postgresql-19.0.0-aarch64-apple-darwin.tar.gz",
+    "Sha256": "3165a453906bb345f54e189f65db828a76d60e7696191afd26fca6dc73ba51a4"
+  },
+  {
+    "Major": 19,
+    "Platform": "osx-x64",
+    "Version": "19.0.0",
+    "Provider": "theseus-rs",
+    "Url": "https://github.com/theseus-rs/postgresql-binaries/releases/download/19.0.0/postgresql-19.0.0-x86_64-apple-darwin.tar.gz",
+    "Sha256": "f255a9c1a3489b4125794c7d2221ff6d82466d5da24876a3a9655c5a596e2efd"
+  }
+]

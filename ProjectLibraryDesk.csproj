@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <RuntimeIdentifiers>win-x64;linux-x64;osx-arm64;osx-x64</RuntimeIdentifiers>
+    <AvaloniaUseCompiledBindingsByDefault>false</AvaloniaUseCompiledBindingsByDefault>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Version>0.4.0-beta.1</Version>
+    <AssemblyName>DaVinciProjectManager</AssemblyName>
+    <RootNamespace>ProjectLibraryDesk</RootNamespace>
+    <ApplicationIcon>Assets/Desk.ico</ApplicationIcon>
+    <Product>DaVinci Project Manager</Product>
+    <Description>PostgreSQL tools for DaVinci Resolve project libraries</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <AvaloniaResource Include="Assets/Desk.png" />
+    <AvaloniaResource Include="Assets/Desk.ico" />
+    <EmbeddedResource Include="PgToolPackages.json" LogicalName="PgToolPackages.json" />
+    <PackageReference Include="Avalonia.Desktop" Version="12.2.0" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="12.2.0" />
+    <PackageReference Include="Avalonia.Controls.DataGrid" Version="12.1.2" />
+    <PackageReference Include="Npgsql" Version="10.0.4" />
+    <PackageReference Include="BouncyCastle.Cryptography" Version="2.7.0" />
+    <None Update="sql\*.sql" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>
