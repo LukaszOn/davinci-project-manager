@@ -30,4 +30,4 @@ DaVinci Project Manager jest niezależnym projektem na licencji [MIT](LICENSE).
 
 ## DaVinci Resolve Project Server
 
-Wkrótce dostępny.
+Jeśli chcesz uruchomić własny serwer dla bibliotek Resolve, w repozytorium [DaVinci Resolve Project Server](https://github.com/LukaszOn/davinci-resolve-project-server) znajdziesz gotowe pliki Docker Compose i instrukcję konfiguracji.
