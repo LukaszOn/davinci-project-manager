@@ -1,23 +1,33 @@
 # DaVinci Project Manager
 
-Projekt powstał w stylu *vibe coding* z pomocą AI. Mam doświadczenie w programowaniu i tworzeniu oprogramowania, a AI pomagało mi w implementacji.
+DaVinci Project Manager to aplikacja desktopowa do obsługi sieciowych bibliotek projektów DaVinci Resolve. Zacząłem ją tworzyć, żeby w jednym miejscu przełączać się między bibliotekami na różnych serwerach, zarządzać dostępem zespołu i robić kopie baz.
 
-DaVinci Project Manager to bezpłatna aplikacja na Windows, macOS i Linux do zarządzania bibliotekami projektów DaVinci Resolve w PostgreSQL. Możesz zapisać profile kilku serwerów, przełączać się między bibliotekami, zarządzać dostępem zespołu oraz robić i odtwarzać kopie baz. Interfejs jest po polsku.
+Przy tworzeniu aplikacji korzystałem z AI do pisania kodu. To nadal beta i mogą się zdarzyć błędy, zwłaszcza w konfiguracjach, których dotąd nie testowałem. Jeśli coś nie działa, daj znać w [Issues](https://github.com/LukaszOn/davinci-project-manager/issues).
 
-## Pobieranie
+## Instalacja
 
-Instalatory i paczki przenośne znajdziesz w [wydaniu beta](https://github.com/LukaszOn/davinci-project-manager/releases/tag/v0.4.0-beta.1).
+Gotowe paczki są dostępne w [GitHub Releases](https://github.com/LukaszOn/davinci-project-manager/releases).
 
-- **Windows x64.** Uruchom `Setup.exe` albo wypakuj ZIP i otwórz `DaVinciProjectManager.exe`.
-- **macOS.** Wybierz paczkę Apple Silicon lub Intel, wypakuj ją i przenieś `.app` do folderu Aplikacje.
-- **Linux x64.** Na Debianie i Ubuntu użyj pakietu `.deb`. Dostępna jest też paczka przenośna `.tar.gz`.
+| System | Paczki |
+| --- | --- |
+| Windows x64 | Instalator `Setup.exe` albo przenośny ZIP. Po rozpakowaniu ZIP-a uruchom `DaVinciProjectManager.exe`. |
+| macOS | Wybierz Apple Silicon albo Intel. Rozpakuj archiwum i przenieś aplikację do folderu Aplikacje. |
+| Linux x64 | Pakiet `.deb` dla Debiana i Ubuntu albo przenośne archiwum `.tar.gz`. |
 
-Pakiety beta dla Windows i macOS mogą wyświetlić ostrzeżenie systemowe. Instalator Windows jest niepodpisany, a wydanie macOS nie ma notaryzacji Apple.
+Windows i macOS mogą wyświetlić ostrzeżenie przy uruchamianiu tej bety. Instalator Windows jest niepodpisany, a paczki macOS nie mają notaryzacji Apple.
 
-## Pierwsze połączenie
+## Jak to działa
 
-W zakładce **Połączenia** podaj adres istniejącego PostgreSQL oraz login i hasło. Po połączeniu wybierz bibliotekę z listy. Do zarządzania kontami potrzebujesz modułu dostępu i odpowiednich uprawnień. W zakładce **Kopie i odtwarzanie** skorzystasz z klienckich narzędzi PostgreSQL. Szczegóły konfiguracji znajdziesz w [instrukcji](GUIDE.md).
+W zakładce **Połączenia** zapisujesz profil istniejącego serwera PostgreSQL. Po zalogowaniu wybierasz bibliotekę projektów. Możesz zapisać kilka profili i przełączać się między serwerami.
 
-Planowany projekt **DaVinci Resolve Project Server** ma uzupełnić aplikację desktopową o stos Docker z PostgreSQL i panelem WWW. Punktem wyjścia jest [Docker-Davinci-Resolve-Project-Server autorstwa elliotmatson](https://github.com/elliotmatson/Docker-Davinci-Resolve-Project-Server).
+Kontami i dostępem do poszczególnych bibliotek zarządzasz przez moduł dostępu w PostgreSQL. Do pierwszej konfiguracji potrzebujesz administratora serwera. Szczegóły są w [instrukcji konfiguracji](GUIDE.md).
 
-Kod jest dostępny na licencji [MIT](LICENSE). Projekt jest niezależny od Blackmagic Design.
+Do ręcznego zapisywania i odtwarzania kopii aplikacja korzysta z `pg_dump` i `pg_restore`. Na Windows i macOS może pobrać odpowiednie narzędzia dla obsługiwanych wersji PostgreSQL. Na Linuksie korzysta z narzędzi zainstalowanych w systemie lub ze wskazanego katalogu.
+
+Aplikacja jest napisana w C# na .NET 10. Interfejs jest zbudowany w Avalonia UI, a połączenia z PostgreSQL obsługuje Npgsql.
+
+## Wersja serwerowa
+
+Osobno planuję **DaVinci Resolve Project Server** ze stosem Docker, panelem WWW i automatycznymi kopiami. Punktem wyjścia jest [Docker-Davinci-Resolve-Project-Server autorstwa elliotmatson](https://github.com/elliotmatson/Docker-Davinci-Resolve-Project-Server).
+
+DaVinci Project Manager jest niezależnym projektem na licencji [MIT](LICENSE).
