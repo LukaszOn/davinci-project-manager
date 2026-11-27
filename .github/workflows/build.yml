@@ -20,3 +20,6 @@ jobs:
         with:
           dotnet-version: '10.0.x'
       - run: dotnet build ProjectLibraryDesk.csproj --configuration Release
+      - name: Recover a studio with its editor group
+        if: runner.os == 'Linux'
+        run: docker run --rm --network none --user postgres -v "$PWD:/repo:ro" postgres:16 sh /repo/tests/cluster-recovery.sh

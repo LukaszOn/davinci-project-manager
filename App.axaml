@@ -13,7 +13,9 @@
     <FluentTheme />
     <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml" />
     <Style Selector="Button">
-      <Setter Property="Padding" Value="10,5" />
+      <Setter Property="Padding" Value="12,4,12,6" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
       <Setter Property="MinHeight" Value="32" />
       <Setter Property="Margin" Value="0,0,7,5" />
       <Setter Property="Background" Value="#FFFFFF" />
@@ -43,6 +45,17 @@
       <Setter Property="Margin" Value="0" />
       <Setter Property="HorizontalAlignment" Value="Stretch" />
       <Setter Property="HorizontalContentAlignment" Value="Left" />
+    </Style>
+    <Style Selector="Button.nav">
+      <Setter Property="BorderThickness" Value="2,0,0,0" />
+      <Setter Property="Padding" Value="10,5" />
+      <Setter Property="MinHeight" Value="34" />
+    </Style>
+    <Style Selector="Button.nav-icon">
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Width" Value="32" />
+      <Setter Property="Height" Value="32" />
     </Style>
     <Style Selector="Button.nav.selected">
       <Setter Property="Background" Value="#2B354B" />
@@ -98,7 +111,7 @@
     <Style Selector="Button.form-action">
       <Setter Property="Margin" Value="0" />
       <Setter Property="MinHeight" Value="36" />
-      <Setter Property="Padding" Value="12,6" />
+      <Setter Property="Padding" Value="12,5,12,7" />
       <Setter Property="HorizontalContentAlignment" Value="Center" />
     </Style>
     <Style Selector="Border.connection-badge">
@@ -153,19 +166,33 @@
       <Setter Property="RenderTransform" Value="rotate(180deg)" />
     </Style>
     <Style Selector="Button.help">
+      <Setter Property="ToolTip.Placement" Value="Bottom" />
       <Setter Property="Margin" Value="0" />
       <Setter Property="Padding" Value="0" />
-      <Setter Property="MinHeight" Value="20" />
-      <Setter Property="Width" Value="20" />
-      <Setter Property="Height" Value="20" />
-      <Setter Property="CornerRadius" Value="10" />
+      <Setter Property="MinHeight" Value="24" />
+      <Setter Property="Width" Value="24" />
+      <Setter Property="Height" Value="24" />
+      <Setter Property="CornerRadius" Value="12" />
       <Setter Property="HorizontalContentAlignment" Value="Center" />
       <Setter Property="VerticalContentAlignment" Value="Center" />
       <Setter Property="FontWeight" Value="Bold" />
-      <Setter Property="FontSize" Value="11" />
+      <Setter Property="ContentTemplate">
+        <DataTemplate>
+          <PathIcon Width="3" Height="12" Data="M0,0 H3 V3 H0 Z M0.3,5 H2.7 V12 H0.3 Z" />
+        </DataTemplate>
+      </Setter>
       <Setter Property="Background" Value="#F1F4FA" />
       <Setter Property="Foreground" Value="{StaticResource Slate}" />
       <Setter Property="BorderBrush" Value="#B9C7DD" />
+    </Style>
+    <Style Selector="ComboBox.language-picker">
+      <Setter Property="Background" Value="#E9EDF5" />
+      <Setter Property="Foreground" Value="{StaticResource Ink}" />
+      <Setter Property="BorderBrush" Value="#B6C1D4" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.help /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="CornerRadius" Value="12" />
     </Style>
     <Style Selector="TextBlock.help-copy">
       <Setter Property="MaxWidth" Value="276" />
@@ -197,6 +224,18 @@
       <Setter Property="Padding" Value="6,4" />
       <Setter Property="MinHeight" Value="30" />
       <Setter Property="HorizontalAlignment" Value="Stretch" />
+    </Style>
+    <Style Selector="Window.manager-dialog">
+      <Setter Property="FontSize" Value="13" />
+      <Setter Property="Foreground" Value="{StaticResource Ink}" />
+    </Style>
+    <Style Selector="Window.manager-dialog TextBox, Window.manager-dialog ComboBox">
+      <Setter Property="MinHeight" Value="36" />
+      <Setter Property="Padding" Value="9,5" />
+      <Setter Property="CornerRadius" Value="6" />
+    </Style>
+    <Style Selector="TextBlock.dialog-label">
+      <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
     <Style Selector="DataGrid">
       <Setter Property="AutoGenerateColumns" Value="False" />

@@ -14,6 +14,7 @@ internal sealed class GroupsDialog : Window
 {
     public GroupsDialog(GroupDirectory directory, IReadOnlyList<Member> members)
     {
+        Classes.Add("manager-dialog");
         Title = T("UserGroups");
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         ShowInTaskbar = false;
@@ -44,6 +45,7 @@ internal sealed class GroupsDialog : Window
         var footer = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*") };
         var delete = new Button { Content = T("DeleteGroup"), VerticalAlignment = VerticalAlignment.Bottom };
         delete.Classes.Add("danger");
+        delete.Classes.Add("form-action");
         delete.Click += (_, _) =>
         {
             if (SelectedGroup() is { } group) Close(new GroupInput(group, null, [], []));
@@ -109,7 +111,7 @@ internal sealed class GroupsDialog : Window
         if (checks.Count == 0)
             items.Children.Add(new TextBlock { Text = emptyText, TextWrapping = TextWrapping.Wrap });
         var scroll = new ScrollViewer { Content = items };
-        var border = new Border { BorderBrush = Brushes.LightGray, BorderThickness = new Thickness(1), Child = scroll };
+        var border = new Border { BorderBrush = new SolidColorBrush(Color.Parse("#D8DFED")), CornerRadius = new CornerRadius(6), BorderThickness = new Thickness(1), ClipToBounds = true, Child = scroll };
         var grid = new Grid { RowDefinitions = new RowDefinitions("Auto,*"), RowSpacing = 5 };
         grid.Children.Add(new TextBlock { Text = title, FontWeight = FontWeight.SemiBold });
         Grid.SetRow(border, 1);
@@ -122,6 +124,7 @@ public sealed class MemberDialog : Window
 {
     public MemberDialog(string action, Member? person, string library)
     {
+        Classes.Add("manager-dialog");
         Title = action switch { "create" => T("AddUser"), "edit" => T("EditUser"), _ => T("ChangePassword") };
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         ShowInTaskbar = false;
@@ -130,12 +133,16 @@ public sealed class MemberDialog : Window
         Width = 465;
         var content = new StackPanel { Margin = new Thickness(22) };
         Background = Brushes.White;
-        Content = content;
+        Content = new ScrollViewer { Content = content };
 
         var login = new TextBox { Text = person?.Login ?? "", MaxLength = 31 };
         var display = new TextBox { Text = person?.Name ?? "", MaxLength = 80 };
         var role = new ComboBox { ItemsSource = new[] { T("Collaborator"), T("PanelAdministrator") }, SelectedIndex = person?.Role == "administrator" ? 1 : 0 };
-        if (action == "password") content.Children.Add(new TextBlock { Text = person!.Login, FontSize = 17, FontWeight = FontWeight.SemiBold });
+        if (action == "password")
+        {
+            content.Children.Add(new TextBlock { Text = person!.Name, TextWrapping = TextWrapping.Wrap, FontSize = 17, FontWeight = FontWeight.SemiBold });
+            content.Children.Add(new TextBlock { Text = person.Login, Margin = new Thickness(0, 0, 0, 8) });
+        }
         else
         {
             AddField(content, T("DisplayName"), display);
@@ -150,24 +157,28 @@ public sealed class MemberDialog : Window
             AddField(content, T("UserPassword"), password);
             AddField(content, T("RepeatPassword"), confirmation);
         }
-        var grant = new CheckBox { Content = T("GrantAccessTo", library), IsChecked = true, Margin = new Thickness(0, 2, 0, 8) };
+        var grant = new CheckBox { Content = new TextBlock { Text = T("GrantAccessTo", library), TextWrapping = TextWrapping.Wrap }, IsChecked = true, Margin = new Thickness(0, 2, 0, 8) };
         if (action == "create") content.Children.Add(grant);
 
-        var feedback = new TextBlock { Foreground = Brushes.DarkRed, TextWrapping = TextWrapping.Wrap };
+        var feedback = new TextBlock { Foreground = Brushes.DarkRed, TextWrapping = TextWrapping.Wrap, IsVisible = false };
         content.Children.Add(feedback);
         AddButtons(this, content, T("Save"), () =>
         {
+            string username = login.Text?.Trim().ToLowerInvariant() ?? "";
+            string label = display.Text?.Trim() ?? "";
+            if (action != "password" && (label.Length == 0 || username.Length == 0))
+            {
+                feedback.Text = T("EnterADisplayNameAndUsername");
+                feedback.IsVisible = true;
+                (label.Length == 0 ? display : login).Focus();
+                return;
+            }
             string? secret = password.Text;
             if (action != "edit" && (secret is null || secret.Length < 8 || secret != confirmation.Text))
             {
                 feedback.Text = T("EnterTheSamePasswordTwiceUse");
-                return;
-            }
-            string username = login.Text?.Trim().ToLowerInvariant() ?? "";
-            string label = display.Text?.Trim() ?? "";
-            if (username.Length == 0 || label.Length == 0)
-            {
-                feedback.Text = T("EnterADisplayNameAndUsername");
+                feedback.IsVisible = true;
+                (secret?.Length >= 8 ? confirmation : password).Focus();
                 return;
             }
             var result = new MemberInput(username, label, role.SelectedIndex == 1 ? "administrator" : "collaborator",
@@ -182,23 +193,27 @@ public sealed class MemberDialog : Window
     internal static void AddField(Panel panel, string caption, Control control)
     {
         var label = new TextBlock { Text = caption, Margin = new Thickness(0, 5, 0, 3) };
+        label.Classes.Add("dialog-label");
         Avalonia.Automation.AutomationProperties.SetName(control, caption);
         control.Margin = new Thickness(0, 0, 0, 6);
         panel.Children.Add(label);
         panel.Children.Add(control);
     }
 
-    internal static void AddButtons(Window dialog, Panel panel, string caption, Action accept)
+    internal static Button AddButtons(Window dialog, Panel panel, string caption, Action accept)
     {
-        var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 13, 0, 0) };
+        var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Spacing = 8, Margin = new Thickness(0, 14, 0, 0) };
         var cancel = new Button { Content = T("Cancel") };
         var confirm = new Button { Content = caption };
+        cancel.Classes.Add("form-action");
+        confirm.Classes.Add("form-action");
         confirm.Classes.Add("primary");
         cancel.Click += (_, _) => dialog.Close();
         confirm.Click += (_, _) => accept();
         buttons.Children.Add(cancel);
         buttons.Children.Add(confirm);
         panel.Children.Add(buttons);
+        return confirm;
     }
 }
 
@@ -212,16 +227,26 @@ internal static class TextDialog
             ShowInTaskbar = false, Width = 438, SizeToContent = SizeToContent.Height, CanResize = false,
             Background = Brushes.White,
         };
+        window.Classes.Add("manager-dialog");
         var panel = new StackPanel { Margin = new Thickness(22) };
         var field = new TextBox { Text = defaultValue, MaxLength = 63 };
         MemberDialog.AddField(panel, caption, field);
-        MemberDialog.AddButtons(window, panel, "Dalej", () => window.Close(field.Text));
+        var feedback = new TextBlock { Text = T("LibraryNameFormat"), TextWrapping = TextWrapping.Wrap };
+        panel.Children.Add(feedback);
+        var next = MemberDialog.AddButtons(window, panel, T("Continue"), () => window.Close(field.Text));
+        void Validate()
+        {
+            next.IsEnabled = PgServer.ValidLibraryName(field.Text ?? "");
+            feedback.IsVisible = !next.IsEnabled;
+        }
+        field.TextChanged += (_, _) => Validate();
+        Validate();
         window.Content = panel;
         window.Opened += (_, _) => { field.Focus(); field.SelectAll(); };
         return window.ShowDialog<string?>(owner);
     }
 
-    public static Task<bool> ConfirmAsync(Window owner, string message)
+    public static Task<bool> ConfirmAsync(Window owner, string message, string caption, bool destructive = false)
     {
         var dialog = new Window
         {
@@ -229,9 +254,15 @@ internal static class TextDialog
             ShowInTaskbar = false, Width = 472, SizeToContent = SizeToContent.Height, CanResize = false,
             Background = Brushes.White,
         };
+        dialog.Classes.Add("manager-dialog");
         var panel = new StackPanel { Margin = new Thickness(22) };
         panel.Children.Add(new TextBlock { Text = message, TextWrapping = TextWrapping.Wrap });
-        MemberDialog.AddButtons(dialog, panel, T("Confirm"), () => dialog.Close(true));
+        var action = MemberDialog.AddButtons(dialog, panel, caption, () => dialog.Close(true));
+        if (destructive)
+        {
+            action.Classes.Remove("primary");
+            action.Classes.Add("danger");
+        }
         dialog.Content = panel;
         return dialog.ShowDialog<bool>(owner);
     }
@@ -247,8 +278,9 @@ internal static class SetupDialog
             Width = 695, MinWidth = 650, SizeToContent = SizeToContent.Height, ShowInTaskbar = false,
             Background = Brushes.White,
         };
-        var content = new StackPanel { Margin = new Thickness(21) };
-        content.Children.Add(new TextBlock { Text = $"{library} na {server}", FontSize = 20, FontWeight = FontWeight.SemiBold });
+        window.Classes.Add("manager-dialog");
+        var content = new StackPanel { Margin = new Thickness(22) };
+        content.Children.Add(new TextBlock { Text = T("LibraryOnServer", library, server), TextWrapping = TextWrapping.Wrap, FontSize = 20, FontWeight = FontWeight.SemiBold });
         AddText(T("AServerAdministratorMustCompleteThis"));
         AddText(T("AddTheseTwoRulesOnThe"));
         AddRules(rules);
@@ -256,7 +288,7 @@ internal static class SetupDialog
         AddRules("local all +resolve_panel_members reject\r\nhost all +resolve_panel_members all reject");
         AddText(T("SaveAndReloadThePostgreSQLConfiguration"));
         MemberDialog.AddButtons(window, content, T("InstallModule"), () => window.Close(true));
-        window.Content = content;
+        window.Content = new ScrollViewer { Content = content };
         return window.ShowDialog<bool>(owner);
 
         void AddText(string text) => content.Children.Add(new TextBlock { Text = text, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 10, 0, 6) });

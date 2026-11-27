@@ -22,7 +22,9 @@
         <Grid Grid.Row="2" RowDefinitions="Auto,*" Margin="0,20,0,0">
           <Grid ColumnDefinitions="*,Auto" Margin="6,0,0,5">
             <TextBlock Text="{StaticResource Ui.Libraries}" Foreground="#BDCADF" FontWeight="SemiBold" VerticalAlignment="Center" />
-            <Button x:Name="RefreshButton" Grid.Column="1" Content="↻" Classes="nav-icon" Click="Refresh" AutomationProperties.Name="{StaticResource Ui.RefreshLibraries}" />
+            <Button x:Name="RefreshButton" Grid.Column="1" ToolTip.Tip="{StaticResource Ui.RefreshLibraries}" Classes="nav-icon" Click="Refresh" AutomationProperties.Name="{StaticResource Ui.RefreshLibraries}">
+              <PathIcon Width="15" Height="15" Data="M20,7V2L18,4A9,9 0 1 0 21,13H18.7A6.7,6.7 0 1 1 16.4,5.6L14,8H20Z" />
+            </Button>
           </Grid>
           <ListBox x:Name="LibraryList" Grid.Row="1" Classes="libraries" SelectionChanged="LibrarySelected" AutomationProperties.Name="{StaticResource Ui.PostgreSQLDatabases}">
             <ListBox.ItemTemplate>
@@ -38,8 +40,8 @@
         <StackPanel Grid.Row="3" Margin="0,12,0,0" Spacing="4">
           <Grid ColumnDefinitions="Auto,*" ColumnSpacing="7">
             <TextBlock Text="{StaticResource Ui.Language}" Foreground="#BDCADF" FontSize="11" VerticalAlignment="Center" />
-            <ComboBox x:Name="LanguagePicker" Grid.Column="1" AutomationProperties.Name="{StaticResource Ui.Language}"
-                      Padding="6,3" MinHeight="26" FontSize="11">
+            <ComboBox x:Name="LanguagePicker" Classes="language-picker" Grid.Column="1" AutomationProperties.Name="{StaticResource Ui.Language}"
+                      Padding="8,4" MinHeight="30" FontSize="12">
               <ComboBoxItem Content="English" />
               <ComboBoxItem Content="Polski" />
             </ComboBox>
@@ -73,10 +75,17 @@
       <Grid x:Name="WorkArea" Grid.Row="1">
         <ScrollViewer x:Name="UsersView" VerticalScrollBarVisibility="Auto">
           <Grid RowDefinitions="Auto,Auto,*" Margin="0,0,1,12">
-            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="12" Margin="0,0,0,14">
+            <Grid x:Name="UserHeader" ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="12" Margin="0,0,0,14">
               <TextBlock Text="{StaticResource Ui.Users}" Classes="page-title" VerticalAlignment="Center" />
-              <Button x:Name="GroupsButton" Grid.Column="1" Content="{StaticResource Ui.UserGroups}" Classes="form-action" Click="OpenGroups" VerticalAlignment="Center" />
-              <Button x:Name="AddMemberButton" Grid.Column="2" Content="{StaticResource Ui.AddPerson}" Classes="primary form-action" Click="AddMember" VerticalAlignment="Center" />
+              <StackPanel x:Name="UserHeaderActions" Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                <Button x:Name="GroupsButton" Content="{StaticResource Ui.UserGroups}" Classes="form-action" Click="OpenGroups" />
+                <Button x:Name="AddMemberButton" Classes="primary form-action" Padding="12,6" Click="AddMember" AutomationProperties.Name="{StaticResource Ui.AddPerson}">
+                  <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
+                    <PathIcon Width="12" Height="12" VerticalAlignment="Center" Data="M5,0 H7 V5 H12 V7 H7 V12 H5 V7 H0 V5 H5 Z" />
+                    <TextBlock Text="{StaticResource Ui.AddPerson}" VerticalAlignment="Center" />
+                  </StackPanel>
+                </Button>
+              </StackPanel>
             </Grid>
             <Border Grid.Row="1" x:Name="SetupNotice" Classes="card" Padding="14,10" Margin="0,0,0,13" IsVisible="False">
               <Grid ColumnDefinitions="*,Auto">
@@ -119,9 +128,13 @@
                           </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                       </DataGridTemplateColumn>
-                      <DataGridTextColumn Header="{StaticResource Ui.Role}" Binding="{Binding RoleLabel}" Width="1.05*" MinWidth="98" />
-                      <DataGridTextColumn Header="{StaticResource Ui.Libraries}" Binding="{Binding LibraryCount}" Width="94" />
-                      <DataGridTemplateColumn Header="Status" Width="104">
+                      <DataGridTemplateColumn Header="{StaticResource Ui.Role}" SortMemberPath="RoleLabel" Width="1.05*" MinWidth="110">
+                        <DataGridTemplateColumn.CellTemplate>
+                          <DataTemplate><TextBlock Text="{Binding RoleLabel}" TextWrapping="Wrap" Margin="4,0" VerticalAlignment="Center" /></DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                      </DataGridTemplateColumn>
+                      <DataGridTextColumn Header="{StaticResource Ui.Libraries}" Binding="{Binding LibraryCount}" Width="100" />
+                      <DataGridTemplateColumn Header="Status" Width="86">
                         <DataGridTemplateColumn.CellTemplate>
                           <DataTemplate>
                             <Border Classes="badge" Classes.active="{Binding Enabled}" Padding="7,3" HorizontalAlignment="Left" VerticalAlignment="Center">
@@ -324,6 +337,7 @@
         <ScrollViewer x:Name="BackupsView" VerticalScrollBarVisibility="Auto" IsVisible="False">
           <StackPanel Spacing="14" Margin="0,0,1,10">
             <TextBlock Text="{StaticResource Ui.BackupAndRestore}" Classes="page-title" />
+            <TextBlock x:Name="LastBackup" Classes="form-help" TextWrapping="Wrap" IsVisible="False" />
             <Border x:Name="BackupsToolsNotice" Classes="card" Padding="17,11" IsVisible="False">
               <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                 <TextBlock x:Name="BackupsToolsMessage" Classes="form-help" VerticalAlignment="Center" TextWrapping="Wrap" />

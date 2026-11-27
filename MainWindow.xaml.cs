@@ -11,6 +11,7 @@ namespace ProjectLibraryDesk;
 
 public partial class MainWindow : Window
 {
+    private readonly BackupHistory _backupHistory = new();
     private readonly ProfileStore _store = ProfileStore.ForCurrentUser();
     private readonly DispatcherTimer _connectionMonitor = new() { Interval = TimeSpan.FromSeconds(20) };
     private List<ServerProfile> _profiles = [];
@@ -151,7 +152,7 @@ public partial class MainWindow : Window
     private async void DeleteProfile(object sender, RoutedEventArgs e)
     {
         if (ProfileList.SelectedItem is not ServerProfile profile ||
-            !await ConfirmAsync(T("RemoveSavedProfileFromThisComputer", profile.Name))) return;
+            !await ConfirmAsync(T("RemoveSavedProfileFromThisComputer", profile.Name), T("DeleteProfile"), true)) return;
         try
         {
             var updated = _profiles.Where(other => other.Id != profile.Id).ToList();
@@ -265,12 +266,25 @@ public partial class MainWindow : Window
         ConnectionBadge.Classes.Set("offline", profile is null);
         ConnectionState.Text = connected ? T("Connected") : profile is not null ? T("Connecting") : T("Disconnected2");
         ActiveLibrary.Text = connected ? (LibraryList.SelectedItem as PgLibrary)?.Name ?? T("SelectALibrary") : "—";
+        ShowBackupDates();
         ActiveEndpoint.IsVisible = profile is not null;
         if (profile is not null)
         {
             string endpoint = Endpoint(profile);
             ActiveEndpoint.Text = profile.Name == profile.Host || profile.Name == endpoint ? endpoint : $"{endpoint}  ·  {profile.Name}";
         }
+    }
+
+    private void ShowBackupDates()
+    {
+        var library = LibraryList.SelectedItem as PgLibrary;
+        LastBackup.IsVisible = _server is not null && library is not null;
+        if (_server is null || library is null) return;
+        string serverDate = library.ServerBackup is { } stamp
+            ? stamp.ToLocalTime().ToString("g") : T("NoBackupReport");
+        var local = _backupHistory.Last(_server.Profile, library);
+        LastBackup.Text = T("LastServerBackup", library.Name, serverDate) +
+            (local is null ? "" : Environment.NewLine + T("LastLocalBackup", local.Value.ToLocalTime().ToString("g")));
     }
 
     private async void CheckConnection(object? sender, EventArgs e)
@@ -307,9 +321,9 @@ public partial class MainWindow : Window
     private async Task ShowLibrariesAsync(IReadOnlyList<PgLibrary> libraries, string? selection = null)
     {
         LibraryList.ItemsSource = libraries;
+        var registered = libraries.Where(library => library.Registered).Take(2).ToArray();
         LibraryList.SelectedItem = libraries.FirstOrDefault(library => library.Name == selection)
-            ?? libraries.FirstOrDefault(library => !string.Equals(library.Name, _server?.Profile.MaintenanceDb, StringComparison.Ordinal))
-            ?? libraries.FirstOrDefault();
+            ?? (registered.Length == 1 ? registered[0] : null);
         await ShowDirectoryAsync();
     }
 
@@ -336,8 +350,12 @@ public partial class MainWindow : Window
         _membersLoaded = false;
         _directoryMembers = [];
         RefreshMemberRows();
-        SetupNotice.IsVisible = library is not null;
-        if (library is null) return;
+        SetupNotice.IsVisible = true;
+        if (library is null)
+        {
+            DirectoryMessage.Text = T("ChooseResolveLibrary");
+            return;
+        }
         DirectoryMessage.Text = T("CheckingAccountManagementForThisLibrary");
         DirectoryState result;
         try { result = await server.ReadDirectoryAsync(library.Name); }
@@ -382,6 +400,11 @@ public partial class MainWindow : Window
         MainWorkspace.Margin = new Avalonia.Thickness(padding, compact ? 14 : 20, padding, 12);
         BrandLockup.ColumnDefinitions[0].Width = new GridLength(compact ? 31 : 38);
         BrandName.FontSize = compact ? 13 : 15;
+
+        bool narrowHeader = workspace < 610;
+        Grid.SetColumn(UserHeaderActions, narrowHeader ? 0 : 1);
+        Grid.SetRow(UserHeaderActions, narrowHeader ? 1 : 0);
+        UserHeader.RowSpacing = narrowHeader ? 8 : 0;
 
         bool stackedUsers = workspace < 880;
         Grid.SetColumn(DetailsCard, stackedUsers ? 0 : 1);
@@ -465,6 +488,11 @@ public partial class MainWindow : Window
         DetailRole.Text = $"{member.Login} · {member.RoleLabel}";
         DetailCurrentLibrary.Text = library ?? T("SelectALibrary");
         DetailAssignment.Text = _groupsAvailable && assigned ? T(direct ? "DirectAccess" : "AccessThroughAGroup") : T(assigned ? "Assigned" : "NoAccess");
+        if (member.GrantingGroups.Length > 0)
+        {
+            string groups = T("AccessViaGroups", string.Join(", ", member.GrantingGroups));
+            DetailAssignment.Text = direct ? $"{T("DirectAccess")} · {groups}" : groups;
+        }
         DetailAccessButton.Content = direct ? T(_groupsAvailable ? "RevokeDirectAccess" : "RevokeAccess")
             : T(assigned ? "GrantDirectAccess" : "GrantAccess");
         DetailAccessButton.IsEnabled = _memberControls;
@@ -507,8 +535,14 @@ public partial class MainWindow : Window
     {
         if (!_memberControls || _server is not { } server || LibraryList.SelectedItem is not PgLibrary library || SelectedMember() is not { } member) return;
         string command = change == "toggle" ? (member.Enabled ? "disable" : "enable") : change;
-        if (command == "disable" && !await ConfirmAsync(T("LockAccountOnItsSessionsWill", member.Login, Endpoint(server.Profile)))) return;
-        if (command == "revoke" && !await ConfirmAsync(T(_groupsAvailable ? "RevokeDirectAccessFor" : "RevokeAccessForToSessionsIn", member.Login, library.Name))) return;
+        if (command == "disable" && !await ConfirmAsync(T("LockAccountOnItsSessionsWill", member.Login, Endpoint(server.Profile)), T("LockAccount"), true)) return;
+        if (command == "revoke")
+        {
+            string prompt = member.GrantingGroups.Length > 0
+                ? T("RevokeKeepsGroups", member.Login, library.Name, string.Join(", ", member.GrantingGroups))
+                : T(_groupsAvailable ? "RevokeDirectAccessFor" : "RevokeAccessForToSessionsIn", member.Login, library.Name);
+            if (!await ConfirmAsync(prompt, T("RevokeDirectAccess"), true)) return;
+        }
         await RunAsync(T("UpdatingAccess"), async () =>
         {
             await server.ChangeAccessAsync(command, member.Login, library.Name);
@@ -534,7 +568,7 @@ public partial class MainWindow : Window
                 Status.Text = T("ConnectAsSuperuserToEnableGroups");
                 return;
             }
-            if (!await ConfirmAsync(T("EnableGroupsOnServer", Endpoint(server.Profile)))) return;
+            if (!await ConfirmAsync(T("EnableGroupsOnServer", Endpoint(server.Profile)), T("EnableUserGroups"))) return;
             if (!ReferenceEquals(_server, server)) return;
             await RunAsync(T("EnablingUserGroups"), async () =>
             {
@@ -555,7 +589,7 @@ public partial class MainWindow : Window
 
         var dialog = new GroupsDialog(directory, _directoryMembers);
         if (await dialog.ShowDialog<GroupInput?>(this) is not { } input) return;
-        if (input.Label is null && !await ConfirmAsync(T("DeleteGroupConfirm", input.Group!.Name))) return;
+        if (input.Label is null && !await ConfirmAsync(T("DeleteGroupConfirm", input.Group!.Name), T("DeleteGroup"), true)) return;
         if (!ReferenceEquals(_server, server)) return;
         await RunAsync(T("SavingGroup"), async () =>
         {
@@ -568,7 +602,7 @@ public partial class MainWindow : Window
     private async void DeleteMember(object sender, RoutedEventArgs e)
     {
         if (!_memberControls || _server is not { } server || SelectedMember() is not { } member) return;
-        if (!await ConfirmAsync(T("DeleteAccountOnProjectsWillBe", member.Login, Endpoint(server.Profile)))) return;
+        if (!await ConfirmAsync(T("DeleteAccountOnProjectsWillBe", member.Login, Endpoint(server.Profile)), T("DeleteAccount"), true)) return;
         await RunAsync(T("DeletingAccount"), async () =>
         {
             await server.DeleteMemberAsync(member.Login);
@@ -609,6 +643,12 @@ public partial class MainWindow : Window
         await RunAsync(T("BackupOf", library.Name), async () =>
         {
             await new PgTools(server.Profile.ToolsDirectory).CreateBackupAsync(server, library.Name, path);
+            try { _backupHistory.Record(server.Profile, library); }
+            catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+            {
+                AddJournal(T("BackupHistoryWriteFailed"), showStatus: false);
+            }
+            ShowBackupDates();
             return T("BackupSavedAndArchiveContentsVerified", path);
         });
     }
@@ -633,7 +673,7 @@ public partial class MainWindow : Window
             $"resolve_restore_{DateTime.Now:yyyyMMdd_HHmmss}");
         if (string.IsNullOrWhiteSpace(requested)) return;
         string target = requested.Trim();
-        if (!await ConfirmAsync(T("RestoreBackupToTheNewDatabase", Path.GetFileName(archive), target, Endpoint(server.Profile)))) return;
+        if (!await ConfirmAsync(T("RestoreBackupToTheNewDatabase", Path.GetFileName(archive), target, Endpoint(server.Profile)), T("RestoreABackup"))) return;
         await RunAsync(T("RestoringTo", target), async () =>
         {
             await new PgTools(server.Profile.ToolsDirectory).RestoreAsync(server, archive, target);
@@ -701,11 +741,18 @@ public partial class MainWindow : Window
         Status.Text = T("AnOperationIsInProgressClose");
     }
 
-    private Task<bool> ConfirmAsync(string text) => TextDialog.ConfirmAsync(this, text);
+    private Task<bool> ConfirmAsync(string text, string action, bool destructive = false) =>
+        TextDialog.ConfirmAsync(this, text, action, destructive);
 
     private void Report(Exception error)
     {
         string message = ErrorMessage(error);
+        if (_connectingProfile is not null && _server is null && TlsError(error) is not null)
+        {
+            OpenView(ConnectionsView, ConnectionsNav);
+            ConnectionOptions.IsChecked = true;
+            Dispatcher.UIThread.Post(() => SslModeList.Focus());
+        }
         AddJournal(message);
     }
 
@@ -716,10 +763,24 @@ public partial class MainWindow : Window
         Journal.CaretIndex = Journal.Text?.Length ?? 0;
     }
 
+    internal static string? TlsError(Exception error)
+    {
+        if (error is not NpgsqlException || error is PostgresException) return null;
+        for (Exception? cause = error; cause is not null; cause = cause.InnerException)
+        {
+            if (cause.Message.Contains("No SSL enabled connection", StringComparison.OrdinalIgnoreCase))
+                return T("ServerWithoutTls");
+            if (cause is System.Security.Authentication.AuthenticationException ||
+                cause.Message.Contains("SSL handshake", StringComparison.OrdinalIgnoreCase))
+                return T("TlsHandshakeFailed");
+        }
+        return null;
+    }
+
     private static string ErrorMessage(Exception error) => error switch
     {
         PostgresException postgres => $"PostgreSQL {postgres.SqlState} · {UiText.SqlError(postgres.MessageText)}",
-        NpgsqlException => T("CouldNotConnectToPostgreSQLCheck"),
+        NpgsqlException => TlsError(error) ?? T("CouldNotConnectToPostgreSQLCheck"),
         _ => error.Message,
     };
 

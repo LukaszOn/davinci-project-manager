@@ -14,7 +14,12 @@ namespace ProjectLibraryDesk;
 public sealed record ServerProfile(Guid Id, string Name, string Host, int Port, string User,
     string MaintenanceDb, SslMode SslMode, string? RootCertificate, string? ToolsDirectory);
 
-public sealed record PgLibrary(string Name, string Owner);
+public sealed record PgLibrary(string Name, string Owner)
+{
+    public bool Registered { get; init; }
+    public uint Oid { get; init; }
+    public DateTimeOffset? ServerBackup { get; init; }
+}
 
 public sealed record PgIdentity(string Username, int Version, bool CanCreateDatabase, bool IsSuperuser)
 {
@@ -25,6 +30,7 @@ public sealed record PgIdentity(string Username, int Version, bool CanCreateData
 public sealed record Member(string Login, string Name, string Role, bool Enabled, string[] Libraries)
 {
     public string[] DirectLibraries { get; init; } = Libraries;
+    public string[] GrantingGroups { get; init; } = [];
     public string RoleLabel => Role == "administrator" ? T("PanelAdministrator") : T("Collaborator");
     public string State => Enabled ? T("Active") : T("Locked");
     public string LibraryList => string.Join(", ", Libraries);
@@ -91,15 +97,53 @@ public sealed class PgServer(ServerProfile profile, string password)
         await using var connection = Connection();
         await connection.OpenAsync();
         var identity = await IdentifyAsync(connection);
+        var registered = new HashSet<string>(StringComparer.Ordinal);
+        await using var capabilities = new NpgsqlCommand("""
+            SELECT EXISTS (
+                SELECT FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+                WHERE n.nspname = 'resolve_access' AND c.relname = 'available_libraries'
+                  AND has_schema_privilege(n.oid, 'USAGE') AND has_table_privilege(c.oid, 'SELECT')
+            ), has_table_privilege('pg_catalog.pg_db_role_setting', 'SELECT')
+            """, connection);
+        bool canReadRegistry, canReadBackupDates;
+        await using (var row = await capabilities.ExecuteReaderAsync())
+        {
+            await row.ReadAsync();
+            canReadRegistry = row.GetBoolean(0);
+            canReadBackupDates = row.GetBoolean(1);
+        }
+        if (canReadRegistry)
+        {
+            await using var registry = new NpgsqlCommand("SELECT name::text FROM resolve_access.available_libraries", connection);
+            await using var names = await registry.ExecuteReaderAsync();
+            while (await names.ReadAsync()) registered.Add(names.GetString(0));
+        }
+
         var libraries = new List<PgLibrary>();
-        await using var command = new NpgsqlCommand("""
-            SELECT datname, pg_get_userbyid(datdba) FROM pg_database
+        string backupDate = canReadBackupDates ? """
+            (SELECT split_part(setting, '=', 2)
+             FROM pg_catalog.pg_db_role_setting s, unnest(s.setconfig) setting
+             WHERE s.setdatabase = d.oid AND s.setrole = 0
+               AND split_part(setting, '=', 1) = 'davinci_manager.last_backup_utc')
+            """ : "NULL::text";
+        await using var command = new NpgsqlCommand($"""
+            SELECT datname, pg_get_userbyid(datdba), oid, {backupDate}
+            FROM pg_catalog.pg_database d
             WHERE datallowconn AND NOT datistemplate AND has_database_privilege(oid, 'CONNECT')
             ORDER BY datname
             """, connection);
         await using var rows = await command.ExecuteReaderAsync();
         while (await rows.ReadAsync())
-            libraries.Add(new(rows.GetString(0), rows.GetString(1)));
+        {
+            string name = rows.GetString(0);
+            string? stamp = rows.IsDBNull(3) ? null : rows.GetString(3);
+            libraries.Add(new(name, rows.GetString(1))
+            {
+                Oid = rows.GetFieldValue<uint>(2), Registered = registered.Contains(name),
+                ServerBackup = DateTimeOffset.TryParseExact(stamp, "yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture,
+                    DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var date) ? date : null,
+            });
+        }
         return (identity, libraries);
     }
 
@@ -129,7 +173,8 @@ public sealed class PgServer(ServerProfile profile, string password)
         await using var inspection = new NpgsqlCommand("""
             SELECT CASE WHEN to_regclass('resolve_access.directory') IS NOT NULL
                AND to_regprocedure('resolve_access.change_member(text,text,text,text,text,text,text,bytea,boolean)') IS NOT NULL
-               THEN CASE WHEN to_regclass('resolve_access.member_direct_access') IS NOT NULL THEN 2 ELSE 1 END
+               THEN CASE WHEN to_regclass('resolve_access.member_direct_access') IS NULL THEN 1
+                    WHEN has_table_privilege(to_regclass('resolve_access.group_directory'), 'SELECT') THEN 3 ELSE 2 END
                ELSE 0 END
             """, connection);
         try
@@ -143,20 +188,24 @@ public sealed class PgServer(ServerProfile profile, string password)
             if (await registered.ExecuteScalarAsync() is not true)
                 return new(true, false, T("RegisterThisLibraryWithTheAccess"), []);
 
-            bool groupsAvailable = version == 2;
+            bool groupsAvailable = version >= 2;
             string directLibraries = groupsAvailable ? "a.libraries" : "d.libraries::text[]";
             string directJoin = groupsAvailable ? "JOIN resolve_access.member_direct_access a USING (username)" : "";
+            string grantingGroups = version == 3
+                ? "ARRAY(SELECT g.label FROM resolve_access.group_directory g WHERE d.username::text = ANY(g.logins) AND @library = ANY(g.libraries) ORDER BY lower(g.label), g.group_key)"
+                : "ARRAY[]::text[]";
             await using var command = new NpgsqlCommand($"""
-                SELECT d.username::text, d.label, d.account_role, d.enabled, d.libraries::text[], {directLibraries}
+                SELECT d.username::text, d.label, d.account_role, d.enabled, d.libraries::text[], {directLibraries}, {grantingGroups}
                 FROM resolve_access.directory d {directJoin}
                 ORDER BY lower(d.label), d.username
                 """, connection);
+            if (version == 3) command.Parameters.AddWithValue("library", database);
             var members = new List<Member>();
             await using var rows = await command.ExecuteReaderAsync();
             while (await rows.ReadAsync())
                 members.Add(new(rows.GetString(0), rows.GetString(1), rows.GetString(2), rows.GetBoolean(3), rows.GetFieldValue<string[]>(4))
                 {
-                    DirectLibraries = rows.GetFieldValue<string[]>(5),
+                    DirectLibraries = rows.GetFieldValue<string[]>(5), GrantingGroups = rows.GetFieldValue<string[]>(6),
                 });
             return new(true, true, T("TheseAccountsAreManagedOnThis"), members)
             {
@@ -302,10 +351,13 @@ public sealed class PgServer(ServerProfile profile, string password)
         await command.ExecuteNonQueryAsync();
     }
 
+    public static bool ValidLibraryName(string name) =>
+        Regex.IsMatch(name, @"\A[A-Za-z0-9_]{1,63}\z", RegexOptions.CultureInvariant);
+
     public async Task CreateRestoreDatabaseAsync(string target)
     {
-        if (!Regex.IsMatch(target, @"\A[a-z][a-z0-9_]{1,62}\z", RegexOptions.CultureInvariant))
-            throw new InvalidOperationException(T("UseLowercaseLettersDigitsAndUnderscores"));
+        if (!ValidLibraryName(target))
+            throw new InvalidOperationException(T("LibraryNameFormat"));
         await using var connection = Connection();
         await connection.OpenAsync();
         if (!(await IdentifyAsync(connection)).CanCreateDatabase)
@@ -320,7 +372,7 @@ public sealed class PgServer(ServerProfile profile, string password)
 
     public static string LibraryAccessRole(string database)
     {
-        if (!Regex.IsMatch(database, @"\A[A-Za-z0-9_]{1,63}\z", RegexOptions.CultureInvariant))
+        if (!ValidLibraryName(database))
             throw new InvalidOperationException(T("TheSetupWizardSupportsDatabaseNames"));
         // Matches resolve_access.register and the PostgreSQL role installed in the library.
         return "resolve_lib_" + Convert.ToHexStringLower(MD5.HashData(Encoding.UTF8.GetBytes(database)));

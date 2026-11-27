@@ -16,24 +16,30 @@ The packages include .NET. Linux also needs the system libraries listed in the [
 
 1. Add a profile with a name, host, port (usually `5432`), and PostgreSQL credentials. Under **Connection options**, set **Connection database** to `postgres` or the database supplied by your provider.
 2. Choose **Verify TLS** for a server with a certificate. Select a CA certificate if the server uses a private CA. **Prefer TLS** is available for trusted networks where the server may lack TLS. The information icons explain the connection options.
-3. Select **Connect** and choose a library. Next time, select the saved profile and enter the password again.
+3. Select **Connect**. The app selects a library automatically when it finds exactly one registered with Manager. Otherwise, choose the library you created in Resolve from the sidebar. Next time, select the saved profile and enter the password again.
 
 ## Set up account management
 
 Connect with an existing PostgreSQL login. Logins apply across the instance. You assign access to each library separately.
 
-- If the server already has the access module, the app recognizes the `resolve_access` account registry. You can use it from the desktop app without running the web panel. The desktop app uses the PostgreSQL privileges of the login in the selected profile. PostgreSQL controls those privileges separately from the administrator role in the panel's account registry.
-- If you need to set up the module, connect as a PostgreSQL superuser, usually `postgres` on a self-hosted server. Select a library and click **Set up account management**. Add the `pg_hba.conf` rules shown by the wizard and reload PostgreSQL's configuration. The app checks the rules before registering the library. Then you can create individual accounts. For several libraries, place all library rules above the shared rejection rules for `resolve_panel_members`.
-- For ongoing management, you can use a delegated login with access to registry functions. Account management and backup permissions can be granted separately.
+If the server already has the access module, select a registered library and open **Users**. The desktop app connects directly to the same account registry as the web panel. Your PostgreSQL login determines what you can do in the desktop app.
+
+To set up account management for the first time, follow these steps.
+
+1. Connect as a PostgreSQL superuser, usually `postgres` on a self-hosted server. Select the library you created in Resolve and click **Set up account management**. If the wizard asks for `psql`, open **Connections** to [set up the client tools](#postgresql-tools-backups-and-restores).
+2. Copy the access rules from the wizard into `pg_hba.conf` on the server. If you register several libraries, place the allow rules for all of them above the shared rules that reject other connections from managed accounts.
+3. Reload the PostgreSQL configuration and confirm setup in the wizard. It checks the rules and registers the library. You can then add people in **Users**.
+
+For day-to-day management, you can use a PostgreSQL login with permission to call the registry functions. You can grant backup permissions separately.
 
 ### User groups
 
-Groups give several people access to the same libraries on one server. For example, assign two project libraries to an Editors group. Each member can open both libraries using their own Resolve login.
+Groups give several people access to the same libraries on one server. For example, assign two project libraries to a group called Studio Team. Each member can open both libraries using their own Resolve login.
 
 1. Select a registered library and open **Users → User groups**. If groups are disabled on this server, connect as a PostgreSQL superuser and confirm setup.
 2. Choose **New group**, name the group, and select its members and libraries. Select **Save group**. To edit an existing group, select it from the list first.
 
-A person keeps access to a library as long as they have a direct assignment or belong to another group with access. When the last assignment is removed, the app closes that person's sessions for the library. Back up group membership and library assignments with the account registry and PostgreSQL roles.
+A person keeps access to a library as long as they have a direct assignment or belong to another group with access. The account card lists each group that grants access alongside any direct assignment. When the last assignment is removed, the app closes that person's sessions for the library. Back up group membership and library assignments with the account registry and PostgreSQL roles.
 
 ## PostgreSQL tools, backups, and restores
 
@@ -45,9 +51,11 @@ After you connect, **Connections** shows the required tool version and whether i
 
 The app creates PostgreSQL `.backup` files. DaVinci Resolve's Restore wizard opens `.resolve.backup` archives.
 
+**Backup and restore** shows the selected library’s last backup reported by the companion Docker stack and the last copy saved by Manager on this computer. Refresh the library list to read a new server report. Older stacks and other backup tools may have no report. The timestamp records a completed backup job. A test restore checks the contents.
+
 - **Save backup** writes an archive to your computer and checks that its list of objects is readable. Restore the archive and open a Resolve project for a complete check.
 - **Restore a backup** creates a new database on the connected server. You can use a different instance from the source. The PostgreSQL account needs `CREATEDB`. Extensions and other objects may need additional permissions.
-- After restoring a library, register it on the destination instance to assign users. A single database backup covers its database contents. Back up PostgreSQL roles and the account registry separately.
+- After restoring a library, register it on the destination instance to assign users. A single database backup covers its database contents. For a complete self-hosted instance, see [Recover a server with its accounts](https://github.com/LukaszOn/davinci-resolve-project-server#recover-a-server-with-its-accounts).
 
 ## Build from source
 
