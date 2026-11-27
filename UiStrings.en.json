@@ -1,4 +1,5 @@
 {
+  "UnknownRegistryLayout": "The database has an unrecognized or ambiguous access module layout.",
   "LibraryOnServer": "{0} on {1}",
   "Continue": "Continue",
   "LibraryNameFormat": "Use 1–63 letters (A–Z, a–z), digits or underscores. Letter case is preserved.",

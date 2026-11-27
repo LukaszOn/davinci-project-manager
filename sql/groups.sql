@@ -183,6 +183,24 @@ EXECUTE FUNCTION resolve_access.remove_group_memberships();
 
 REVOKE ALL ON FUNCTION resolve_access.change_group(text,bigint,text,text[],text[]),
     resolve_access.remove_group_memberships() FROM PUBLIC;
-GRANT SELECT ON resolve_access.group_directory, resolve_access.member_direct_access TO resolve_panel_agent;
-GRANT EXECUTE ON FUNCTION resolve_access.change_group(text,bigint,text,text[],text[]) TO resolve_panel_agent;
+-- The web installer grants these too when it runs after the desktop installer.
+DO $permissions$
+DECLARE
+    service_user name := 'resolve_panel_agent'; -- Panels installed before the service account registry.
+BEGIN
+    IF to_regclass('resolve_access.panel_service_account') IS NOT NULL THEN
+        SELECT username INTO service_user FROM resolve_access.panel_service_account;
+    END IF;
+    IF EXISTS (
+        SELECT FROM pg_proc p CROSS JOIN LATERAL aclexplode(p.proacl) acl
+        JOIN pg_roles r ON r.oid = acl.grantee
+        WHERE p.oid = 'resolve_access.panel_administrator(text)'::regprocedure
+          AND r.rolname = service_user AND acl.privilege_type = 'EXECUTE'
+          AND has_function_privilege(r.oid, 'resolve_access.change_member(text,text,text,text,text,text,text,bytea,boolean)', 'EXECUTE')
+    ) THEN
+        EXECUTE format('GRANT SELECT ON resolve_access.group_directory, resolve_access.member_direct_access TO %I', service_user);
+        EXECUTE format('GRANT EXECUTE ON FUNCTION resolve_access.change_group(text,bigint,text,text[],text[]) TO %I', service_user);
+    END IF;
+END;
+$permissions$;
 COMMIT;

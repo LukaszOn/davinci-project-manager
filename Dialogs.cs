@@ -270,7 +270,7 @@ internal static class TextDialog
 
 internal static class SetupDialog
 {
-    public static Task<bool> ShowAsync(Window owner, string library, string server, string rules)
+    public static Task<bool> ShowAsync(Window owner, string library, string server, string rules, string memberRole)
     {
         var window = new Window
         {
@@ -285,7 +285,7 @@ internal static class SetupDialog
         AddText(T("AddTheseTwoRulesOnThe"));
         AddRules(rules);
         AddText(T("AddTheFollowingRejectionRuleOnce"));
-        AddRules("local all +resolve_panel_members reject\r\nhost all +resolve_panel_members all reject");
+        AddRules($"local all +{memberRole} reject\r\nhost all +{memberRole} all reject");
         AddText(T("SaveAndReloadThePostgreSQLConfiguration"));
         MemberDialog.AddButtons(window, content, T("InstallModule"), () => window.Close(true));
         window.Content = new ScrollViewer { Content = content };

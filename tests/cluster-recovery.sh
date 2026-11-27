@@ -14,13 +14,15 @@ cleanup() {
 }
 trap cleanup EXIT
 export PGHOST="$work" PGPORT=55431 PGUSER=postgres PGDATABASE=postgres
-initdb -D "$work/source" --auth-local=trust --auth-host=scram-sha-256 --no-locale -E UTF8 > /dev/null
+initdb -D "$work/source" -U "$PGUSER" --auth-local=trust --auth-host=scram-sha-256 --no-locale -E UTF8 > /dev/null
 pg_ctl -D "$work/source" -o "-k $work -p $PGPORT -h 127.0.0.1" -l "$work/source.log" -w start >/dev/null
 sql() { psql -XqAtw -v ON_ERROR_STOP=1 "$@"; }
 library=Editing_Projects
 createdb "$library"
 sql -d "$library" -c "CREATE TABLE project_fixture (edit text); INSERT INTO project_fixture VALUES ('before backup')"
 sql -f "$repo/sql/control.sql" >/dev/null
+test "$(sql -c "SELECT count(*) FROM pg_roles WHERE rolname = 'resolve_panel_agent'")" = 0
+test "$(sql -f "$repo/sql/registry-layout.sql")" = resolve
 sql -d "$library" -f "$repo/sql/library.sql" >/dev/null
 sql -v library="$library" -f "$repo/sql/register.sql"
 sql -f "$repo/sql/groups.sql" >/dev/null
@@ -54,3 +56,32 @@ test "$(editor -d "$library" -c 'SELECT count(*) FROM project_fixture')" = 2
 if editor -d postgres -c 'SELECT 1' >/dev/null 2>&1; then exit 1; fi
 test "$(PGPORT=55431 sql -d "$library" -c 'SELECT count(*) FROM project_fixture')" = 1
 printf '%s\n' 'Verified the recovered library, login, group grant, write and refusal on the maintenance database.'
+
+# A desktop group install can follow an old web panel, a named panel or no panel.
+sql -c 'CREATE ROLE resolve_panel_agent LOGIN; CREATE ROLE studio_service LOGIN'
+group_access() {
+  sql -v role="$1" <<'SQL'
+SELECT has_table_privilege(:'role', 'resolve_access.group_directory', 'SELECT')
+   AND has_table_privilege(:'role', 'resolve_access.member_direct_access', 'SELECT')
+   AND has_function_privilege(:'role', 'resolve_access.change_group(text,bigint,text,text[],text[])', 'EXECUTE');
+SQL
+}
+sql -f "$repo/sql/groups.sql" >/dev/null
+test "$(group_access resolve_panel_agent)" = f
+sql -c 'GRANT EXECUTE ON FUNCTION resolve_access.panel_administrator(text) TO resolve_panel_agent'
+sql -f "$repo/sql/groups.sql" >/dev/null
+test "$(group_access resolve_panel_agent)" = f
+sql -c 'GRANT EXECUTE ON FUNCTION resolve_access.change_member(text,text,text,text,text,text,text,bytea,boolean) TO resolve_panel_agent'
+sql -f "$repo/sql/groups.sql" >/dev/null
+test "$(group_access resolve_panel_agent)" = t
+sql -c "CREATE TABLE resolve_access.panel_service_account (username name);
+        INSERT INTO resolve_access.panel_service_account VALUES ('studio_service');
+        GRANT EXECUTE ON FUNCTION resolve_access.panel_administrator(text),
+          resolve_access.change_member(text,text,text,text,text,text,text,bytea,boolean) TO studio_service"
+sql -f "$repo/sql/control.sql" >/dev/null
+sql -f "$repo/sql/groups.sql" >/dev/null
+test "$(group_access studio_service)" = t
+
+createdb previous_registry
+sed 's/resolve_/previous_/g' "$repo/sql/control.sql" | sql -d previous_registry >/dev/null
+test "$(sql -d previous_registry -f "$repo/sql/registry-layout.sql")" = previous

@@ -27,12 +27,6 @@ ALTER TABLE resolve_access.people
 
 SELECT 'CREATE ROLE resolve_panel_members NOLOGIN'
 WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'resolve_panel_members') \gexec
-SELECT 'CREATE ROLE resolve_panel_agent LOGIN'
-WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'resolve_panel_agent') \gexec
-\if :{?agent_password}
-ALTER ROLE resolve_panel_agent LOGIN NOSUPERUSER NOCREATEROLE NOCREATEDB NOREPLICATION NOBYPASSRLS
-    PASSWORD :'agent_password';
-\endif
 
 CREATE OR REPLACE VIEW resolve_access.available_libraries AS
 SELECT l.name, l.access_role
@@ -246,10 +240,4 @@ END;
 $body$;
 
 REVOKE ALL ON ALL FUNCTIONS IN SCHEMA resolve_access FROM PUBLIC;
-GRANT CONNECT ON DATABASE postgres TO resolve_panel_agent;
-GRANT USAGE ON SCHEMA resolve_access TO resolve_panel_agent;
-GRANT SELECT ON resolve_access.directory, resolve_access.available_libraries TO resolve_panel_agent;
-GRANT EXECUTE ON FUNCTION resolve_access.apply_change(text,text,text,text,text),
-    resolve_access.close_revoked_sessions(text), resolve_access.panel_administrator(text), resolve_access.member_avatar(text),
-    resolve_access.change_member(text,text,text,text,text,text,text,bytea,boolean) TO resolve_panel_agent;
 COMMIT;

@@ -13,11 +13,17 @@
     <Product>DaVinci Project Manager</Product>
     <Description>PostgreSQL tools for DaVinci Resolve project libraries</Description>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <PathMap>$(MSBuildProjectDirectory)=/_/src</PathMap>
+    <!-- Avalonia records absolute XAML paths even in a path-mapped embedded PDB. -->
+    <DebugType>none</DebugType>
+  </PropertyGroup>
   <ItemGroup>
     <AvaloniaResource Include="Assets/Desk.png" />
     <AvaloniaResource Include="Assets/Desk.ico" />
     <EmbeddedResource Include="UiStrings.en.json" LogicalName="UiStrings.en.json" WithCulture="false" />
     <EmbeddedResource Include="UiStrings.pl.json" LogicalName="UiStrings.pl.json" WithCulture="false" />
+    <EmbeddedResource Include="sql/registry-layout.sql" LogicalName="RegistryLayout.sql" />
     <EmbeddedResource Include="PgToolPackages.json" LogicalName="PgToolPackages.json" />
     <PackageReference Include="Avalonia.Desktop" Version="12.2.0" />
     <PackageReference Include="Avalonia.Themes.Fluent" Version="12.2.0" />

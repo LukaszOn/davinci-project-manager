@@ -2,6 +2,7 @@ using static ProjectLibraryDesk.UiText;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Text;
 using System.Text.RegularExpressions;
 using Npgsql;
 
@@ -49,8 +50,18 @@ public sealed class PgTools(string? toolsDirectory)
             // Library-specific access is registered for the new database name after a restore.
             // A copied event trigger would refer to access roles and membership on the source server.
             var lines = list.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n');
-            string[] filtered = lines.Where(line => !Regex.IsMatch(line,
-                @"^\d+;\s+\d+\s+\d+\s+(?:EVENT TRIGGER -|COMMENT - EVENT TRIGGER) resolve_share_new_objects(?: |$)")).ToArray();
+            var moduleTriggers = new HashSet<string>(StringComparer.Ordinal);
+            foreach (string line in lines)
+            {
+                Match function = Regex.Match(line, @"^\d+;\s+\d+\s+\d+\s+FUNCTION ([a-z][a-z0-9_]{0,25})_library_access share_new_objects\(\)(?: |$)");
+                if (function.Success)
+                    moduleTriggers.Add(function.Groups[1].Value + "_share_new_objects");
+            }
+            string[] filtered = lines.Where(line =>
+            {
+                Match trigger = Regex.Match(line, @"^\d+;\s+\d+\s+\d+\s+(?:EVENT TRIGGER -|COMMENT - EVENT TRIGGER) (\S+)(?: |$)");
+                return !trigger.Success || !moduleTriggers.Contains(trigger.Groups[1].Value);
+            }).ToArray();
             if (lines.Length != filtered.Length)
             {
                 listPath = Path.GetTempFileName();
@@ -89,8 +100,9 @@ public sealed class PgTools(string? toolsDirectory)
 
         async Task RunSqlAsync(string database, string script, params string[] extra)
         {
+            string sql = server.AccessSql(await File.ReadAllTextAsync(Path.Combine(scripts, script)));
             await RunAsync(psql, ["-X", "--no-password", "--quiet", "--set", "ON_ERROR_STOP=1",
-                "--dbname", $"dbname={QuoteLibpq(database)}", .. extra, "--file", Path.Combine(scripts, script)], server, database);
+                "--dbname", $"dbname={QuoteLibpq(database)}", .. extra, "--file", "-"], server, database, sql);
         }
     }
 
@@ -99,11 +111,13 @@ public sealed class PgTools(string? toolsDirectory)
 
     private static string QuoteLibpq(string value) => "'" + value.Replace("\\", "\\\\").Replace("'", "\\'") + "'";
 
-    private static async Task<string> RunAsync(string exe, string[] arguments, PgServer? server = null, string? database = null)
+    private static async Task<string> RunAsync(string exe, string[] arguments, PgServer? server = null, string? database = null,
+        string? input = null)
     {
         var start = new ProcessStartInfo(exe)
         {
             UseShellExecute = false, CreateNoWindow = true, RedirectStandardError = true, RedirectStandardOutput = true,
+            RedirectStandardInput = input is not null, StandardInputEncoding = input is null ? null : new UTF8Encoding(false),
         };
         foreach (string argument in arguments) start.ArgumentList.Add(argument);
         // Discard inherited libpq routing and credential settings. Each job uses its chosen profile.
@@ -130,6 +144,11 @@ public sealed class PgTools(string? toolsDirectory)
         if (!process.Start()) throw new InvalidOperationException(T("CouldNotStartThePostgreSQLTool"));
         Task<string> output = process.StandardOutput.ReadToEndAsync();
         Task<string> errors = process.StandardError.ReadToEndAsync();
+        if (input is not null)
+        {
+            using var writer = process.StandardInput;
+            await writer.WriteAsync(input);
+        }
         await process.WaitForExitAsync();
         string diagnostic = (await errors).Trim();
         if (server is not null && !string.IsNullOrEmpty(server.Password))

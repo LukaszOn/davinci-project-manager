@@ -77,6 +77,35 @@ public sealed class PgServer(ServerProfile profile, string password)
 {
     public ServerProfile Profile { get; } = profile;
     internal string Password { get; } = password;
+    private string _accessPrefix = "resolve";
+
+    // Only trusted module SQL and HBA templates pass through this method. User input uses query parameters.
+    internal string AccessSql(string template) =>
+        template.Replace("resolve_", _accessPrefix + "_", StringComparison.Ordinal);
+
+    private NpgsqlCommand AccessCommand(string template, NpgsqlConnection connection, NpgsqlTransaction? transaction = null) =>
+        new(AccessSql(template), connection, transaction);
+
+    private async Task<NpgsqlConnection> OpenRegistryAsync()
+    {
+        var connection = Connection();
+        try
+        {
+            await connection.OpenAsync();
+            using var reader = new StreamReader(typeof(PgServer).Assembly.GetManifestResourceStream("RegistryLayout.sql")!);
+            await using var probe = new NpgsqlCommand(await reader.ReadToEndAsync(), connection);
+            var prefix = await probe.ExecuteScalarAsync() as string;
+            if (prefix is null || !Regex.IsMatch(prefix, @"\A[a-z][a-z0-9_]{0,25}\z", RegexOptions.CultureInvariant))
+                throw new InvalidOperationException(T("UnknownRegistryLayout"));
+            _accessPrefix = prefix;
+            return connection;
+        }
+        catch
+        {
+            await connection.DisposeAsync();
+            throw;
+        }
+    }
 
     private NpgsqlConnection Connection(string? database = null) => new(new NpgsqlConnectionStringBuilder
     {
@@ -94,11 +123,10 @@ public sealed class PgServer(ServerProfile profile, string password)
 
     public async Task<(PgIdentity Identity, IReadOnlyList<PgLibrary> Libraries)> ConnectAsync()
     {
-        await using var connection = Connection();
-        await connection.OpenAsync();
+        await using var connection = await OpenRegistryAsync();
         var identity = await IdentifyAsync(connection);
         var registered = new HashSet<string>(StringComparer.Ordinal);
-        await using var capabilities = new NpgsqlCommand("""
+        await using var capabilities = AccessCommand("""
             SELECT EXISTS (
                 SELECT FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
                 WHERE n.nspname = 'resolve_access' AND c.relname = 'available_libraries'
@@ -114,7 +142,7 @@ public sealed class PgServer(ServerProfile profile, string password)
         }
         if (canReadRegistry)
         {
-            await using var registry = new NpgsqlCommand("SELECT name::text FROM resolve_access.available_libraries", connection);
+            await using var registry = AccessCommand("SELECT name::text FROM resolve_access.available_libraries", connection);
             await using var names = await registry.ExecuteReaderAsync();
             while (await names.ReadAsync()) registered.Add(names.GetString(0));
         }
@@ -168,9 +196,8 @@ public sealed class PgServer(ServerProfile profile, string password)
 
     public async Task<DirectoryState> ReadDirectoryAsync(string database)
     {
-        await using var connection = Connection();
-        await connection.OpenAsync();
-        await using var inspection = new NpgsqlCommand("""
+        await using var connection = await OpenRegistryAsync();
+        await using var inspection = AccessCommand("""
             SELECT CASE WHEN to_regclass('resolve_access.directory') IS NOT NULL
                AND to_regprocedure('resolve_access.change_member(text,text,text,text,text,text,text,bytea,boolean)') IS NOT NULL
                THEN CASE WHEN to_regclass('resolve_access.member_direct_access') IS NULL THEN 1
@@ -183,7 +210,7 @@ public sealed class PgServer(ServerProfile profile, string password)
             if (version == 0)
                 return new(false, false, T("InstallTheSQLModuleOnThis"), []);
 
-            await using var registered = new NpgsqlCommand("SELECT EXISTS (SELECT FROM resolve_access.available_libraries WHERE name = @library)", connection);
+            await using var registered = AccessCommand("SELECT EXISTS (SELECT FROM resolve_access.available_libraries WHERE name = @library)", connection);
             registered.Parameters.AddWithValue("library", database);
             if (await registered.ExecuteScalarAsync() is not true)
                 return new(true, false, T("RegisterThisLibraryWithTheAccess"), []);
@@ -194,7 +221,7 @@ public sealed class PgServer(ServerProfile profile, string password)
             string grantingGroups = version == 3
                 ? "ARRAY(SELECT g.label FROM resolve_access.group_directory g WHERE d.username::text = ANY(g.logins) AND @library = ANY(g.libraries) ORDER BY lower(g.label), g.group_key)"
                 : "ARRAY[]::text[]";
-            await using var command = new NpgsqlCommand($"""
+            await using var command = AccessCommand($"""
                 SELECT d.username::text, d.label, d.account_role, d.enabled, d.libraries::text[], {directLibraries}, {grantingGroups}
                 FROM resolve_access.directory d {directJoin}
                 ORDER BY lower(d.label), d.username
@@ -223,17 +250,15 @@ public sealed class PgServer(ServerProfile profile, string password)
         string path = Path.Combine(AppContext.BaseDirectory, "sql", "groups.sql");
         if (!File.Exists(path))
             throw new InvalidOperationException(T("GroupsSqlMissing"));
-        await using var connection = Connection();
-        await connection.OpenAsync();
-        await using var command = new NpgsqlCommand(await File.ReadAllTextAsync(path), connection);
+        await using var connection = await OpenRegistryAsync();
+        await using var command = AccessCommand(await File.ReadAllTextAsync(path), connection);
         await command.ExecuteNonQueryAsync();
     }
 
     public async Task<GroupDirectory> ReadGroupsAsync()
     {
-        await using var connection = Connection();
-        await connection.OpenAsync();
-        await using var command = new NpgsqlCommand("""
+        await using var connection = await OpenRegistryAsync();
+        await using var command = AccessCommand("""
             SELECT group_key, label, revision, logins, libraries
             FROM resolve_access.group_directory ORDER BY lower(label), group_key;
             SELECT name::text FROM resolve_access.available_libraries ORDER BY name;
@@ -252,9 +277,8 @@ public sealed class PgServer(ServerProfile profile, string password)
 
     public async Task ChangeGroupAsync(MemberGroup? group, string? label, string[] logins, string[] libraries)
     {
-        await using var connection = Connection();
-        await connection.OpenAsync();
-        await using var command = new NpgsqlCommand("""
+        await using var connection = await OpenRegistryAsync();
+        await using var command = AccessCommand("""
             SELECT resolve_access.change_group(@group, @revision, @label, @logins, @libraries)
             """, connection);
         command.Parameters.AddWithValue("group", NpgsqlDbType.Text, (object?)group?.Key ?? DBNull.Value);
@@ -285,10 +309,9 @@ public sealed class PgServer(ServerProfile profile, string password)
             hashes = await Task.Run(() => CredentialHashes.Create(newPassword));
         }
 
-        await using var connection = Connection();
-        await connection.OpenAsync();
+        await using var connection = await OpenRegistryAsync();
         await using var transaction = await connection.BeginTransactionAsync();
-        await using var command = new NpgsqlCommand("""
+        await using var command = AccessCommand("""
             SELECT resolve_access.change_member(@operation, @login, @next, @label, @role, @scram, @web, NULL, false)
             """, connection, transaction);
         command.Parameters.AddWithValue("operation", operation);
@@ -308,17 +331,16 @@ public sealed class PgServer(ServerProfile profile, string password)
     {
         if (operation is not ("grant" or "revoke" or "enable" or "disable"))
             throw new ArgumentOutOfRangeException(nameof(operation));
-        await using var connection = Connection();
-        await connection.OpenAsync();
+        await using var connection = await OpenRegistryAsync();
         await ApplyAsync(connection, null, operation, login, library);
         if (operation is "revoke" or "disable")
             await CloseRevokedSessionsAsync(connection, [login]);
     }
 
-    private static async Task CloseRevokedSessionsAsync(NpgsqlConnection connection, string[] logins)
+    private async Task CloseRevokedSessionsAsync(NpgsqlConnection connection, string[] logins)
     {
         if (logins.Length == 0) return;
-        await using var command = new NpgsqlCommand("""
+        await using var command = AccessCommand("""
             SELECT resolve_access.close_revoked_sessions(login) FROM unnest(@logins) AS affected(login)
             """, connection);
         command.Parameters.AddWithValue("logins", NpgsqlDbType.Array | NpgsqlDbType.Text, logins);
@@ -332,19 +354,18 @@ public sealed class PgServer(ServerProfile profile, string password)
     public async Task DeleteMemberAsync(string login)
     {
         ValidateLogin(login);
-        await using var connection = Connection();
-        await connection.OpenAsync();
-        await using var command = new NpgsqlCommand("""
+        await using var connection = await OpenRegistryAsync();
+        await using var command = AccessCommand("""
             SELECT resolve_access.change_member('delete', @login, NULL, NULL, NULL, NULL, NULL, NULL, false)
             """, connection);
         command.Parameters.AddWithValue("login", login);
         await command.ExecuteNonQueryAsync();
     }
 
-    private static async Task ApplyAsync(NpgsqlConnection connection, NpgsqlTransaction? transaction,
+    private async Task ApplyAsync(NpgsqlConnection connection, NpgsqlTransaction? transaction,
         string operation, string login, string library)
     {
-        await using var command = new NpgsqlCommand("SELECT resolve_access.apply_change(@operation, @login, NULL, NULL, @library)", connection, transaction);
+        await using var command = AccessCommand("SELECT resolve_access.apply_change(@operation, @login, NULL, NULL, @library)", connection, transaction);
         command.Parameters.AddWithValue("operation", operation);
         command.Parameters.AddWithValue("login", login);
         command.Parameters.AddWithValue("library", library);
@@ -380,9 +401,8 @@ public sealed class PgServer(ServerProfile profile, string password)
 
     public async Task RequireLibraryHbaAsync(string database)
     {
-        string group = "+" + LibraryAccessRole(database);
-        await using var connection = Connection();
-        await connection.OpenAsync();
+        await using var connection = await OpenRegistryAsync();
+        string group = "+" + AccessSql(LibraryAccessRole(database));
         PgIdentity identity = await IdentifyAsync(connection);
         if (!identity.IsSuperuser)
             throw new InvalidOperationException(T("APostgreSQLSuperuserMustPerformThe"));
@@ -413,23 +433,23 @@ public sealed class PgServer(ServerProfile profile, string password)
             throw new InvalidOperationException(T("AddTheLibraryAccessRulesAnd"));
     }
 
-    private static bool ValidHba(List<HbaRule> rules, string database, string group, string generalType)
+    private bool ValidHba(List<HbaRule> rules, string database, string group, string generalType)
     {
         int allowed = rules.FindIndex(rule => rule.Databases.SequenceEqual([database]) && rule.Users.SequenceEqual([group])
             && rule.Method == "scram-sha-256" && (rule.Type == generalType || rule.Type == "hostssl"));
         int restricted = rules.FindIndex(rule => rule.Type == generalType && rule.Method == "reject" && (generalType == "local" || rule.Address == "all")
-            && rule.Databases.SequenceEqual(["all"]) && rule.Users.Contains("+resolve_panel_members"));
+            && rule.Databases.SequenceEqual(["all"]) && rule.Users.Contains(AccessSql("+resolve_panel_members")));
         int open = rules.FindIndex(rule => rule.Users.Contains("all"));
         return allowed >= 0 && restricted > allowed && (open < 0 || restricted < open);
     }
 
     private sealed record HbaRule(string Type, string[] Databases, string[] Users, string Method, string? Address);
 
-    private static void ValidateLogin(string login)
+    private void ValidateLogin(string login)
     {
         if (!Regex.IsMatch(login, @"\A[a-z][a-z0-9_]{1,30}\z", RegexOptions.CultureInvariant) ||
             login == "postgres" || login.StartsWith("pg_", StringComparison.Ordinal) ||
-            login.StartsWith("resolve_panel_", StringComparison.Ordinal) || login.StartsWith("resolve_lib_", StringComparison.Ordinal))
+            login.StartsWith(AccessSql("resolve_panel_"), StringComparison.Ordinal) || login.StartsWith(AccessSql("resolve_lib_"), StringComparison.Ordinal))
             throw new InvalidOperationException(T("UseAUsernameOfCharactersStarting"));
     }
 }

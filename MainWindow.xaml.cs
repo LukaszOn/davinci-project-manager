@@ -615,11 +615,11 @@ public partial class MainWindow : Window
     {
         if (!_canPrepareAccess || _server is not { } server || LibraryList.SelectedItem is not PgLibrary library) return;
         string group;
-        try { group = PgServer.LibraryAccessRole(library.Name); }
+        try { group = server.AccessSql(PgServer.LibraryAccessRole(library.Name)); }
         catch (InvalidOperationException error) { Report(error); return; }
         string hostRule = server.Profile.SslMode == SslMode.Prefer ? "host" : "hostssl";
         string accessRules = $"local \"{library.Name}\" +{group} scram-sha-256\n{hostRule} \"{library.Name}\" +{group} all scram-sha-256";
-        if (!await SetupDialog.ShowAsync(this, library.Name, Endpoint(server.Profile), accessRules)) return;
+        if (!await SetupDialog.ShowAsync(this, library.Name, Endpoint(server.Profile), accessRules, server.AccessSql("resolve_panel_members"))) return;
         await RunAsync(T("SettingUpTheModuleFor", library.Name), async () =>
         {
             await new PgTools(server.Profile.ToolsDirectory).InstallAccessModuleAsync(server, library.Name);

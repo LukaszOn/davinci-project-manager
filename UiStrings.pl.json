@@ -1,4 +1,5 @@
 {
+  "UnknownRegistryLayout": "Nie można jednoznacznie rozpoznać modułu dostępu w tej bazie.",
   "LibraryOnServer": "{0} na {1}",
   "Continue": "Dalej",
   "LibraryNameFormat": "Użyj od 1 do 63 liter (A–Z, a–z), cyfr lub znaków podkreślenia. Wielkość liter zostanie zachowana.",
